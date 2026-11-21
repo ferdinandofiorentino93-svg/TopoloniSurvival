@@ -1,1857 +1,556 @@
-
 <!DOCTYPE html>
-<html lang="it" class="dark">
+<html lang="it" class="h-full bg-slate-900 text-slate-100">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>FATTORE SOPRAVVIVENZA - Party Game Multiplayer</title>
-  
-  <!-- Tailwind CSS -->
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#0f172a">
+  <title>Fattore Sopravvivenza v3.0 - Party Game Multiplayer</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <script>
-    tailwind.config = {
-      darkMode: 'class',
-      theme: {
-        extend: {
-          colors: {
-            brand: {
-              dark: '#0f172a',
-              card: '#1e293b',
-              accent: '#f59e0b',
-              emerald: '#10b981',
-              rose: '#f43f5e',
-              cyan: '#06b6d4'
-            }
-          },
-          fontFamily: {
-            sans: ['Inter', 'system-ui', 'sans-serif']
-          }
-        }
-      }
-    }
-  </script>
-
-  <!-- Google Fonts: Inter -->
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet">
-
-  <!-- QRCode.js CDN con fallback automatico -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-
-  <!-- MQTT client via WSS -->
   <script src="https://unpkg.com/mqtt@5.10.1/dist/mqtt.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet">
   <script>
-    if (typeof mqtt === 'undefined') {
-      document.write('<script src="https://cdn.jsdelivr.net/npm/mqtt@5.10.1/dist/mqtt.min.js"><\/script>');
-    }
+    tailwind.config = { theme: { extend: {
+      fontFamily: { sans: ['Inter', 'sans-serif'] },
+      colors: { brand: { 50:'#f0fdf4', 500:'#22c55e', 600:'#16a34a', 700:'#15803d', 800:'#166534', 900:'#14532d' }, danger: { 500:'#ef4444', 600:'#dc2626' } }
+    } } };
   </script>
-
   <style>
-    body {
-      font-family: 'Inter', sans-serif;
-      background-color: #0f172a;
-      color: #f8fafc;
-      touch-action: manipulation;
-      user-select: none;
-      -webkit-user-select: none;
-    }
-
-    /* Animazioni CSS */
-    @keyframes pulse-subtle {
-      0%, 100% { transform: scale(1); opacity: 1; }
-      50% { transform: scale(1.02); opacity: 0.92; }
-    }
-    .animate-pulse-subtle {
-      animation: pulse-subtle 2s infinite ease-in-out;
-    }
-
-    @keyframes shine {
-      0% { background-position: -200% 0; }
-      100% { background-position: 200% 0; }
-    }
-    .shine-effect {
-      background: linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.15) 50%, rgba(255,255,255,0) 100%);
-      background-size: 200% 100%;
-      animation: shine 3s infinite;
-    }
-
-    /* Canvas per confetti */
-    #confettiCanvas {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100vw;
-      height: 100vh;
-      pointer-events: none;
-      z-index: 100;
-    }
-
-    /* Custom Scrollbars */
-    ::-webkit-scrollbar {
-      width: 6px;
-    }
-    ::-webkit-scrollbar-track {
-      background: #1e293b;
-    }
-    ::-webkit-scrollbar-thumb {
-      background: #475569;
-      border-radius: 4px;
-    }
+    ::-webkit-scrollbar{width:6px}::-webkit-scrollbar-track{background:#0f172a}::-webkit-scrollbar-thumb{background:#334155;border-radius:4px}
+    .touch-target{min-height:48px}.glass-card{background:rgba(30,41,59,.7);backdrop-filter:blur(12px);border:1px solid rgba(255,255,255,.1)}
+    .gradient-text{background:linear-gradient(135deg,#4ade80 0%,#3b82f6 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+    .scenario-card{transition:transform .15s ease,border-color .15s ease,background .15s ease}.scenario-card:active{transform:scale(.985)}
+    .scenario-card:disabled{cursor:not-allowed;opacity:.72}.safe-bar{height:8px;border-radius:999px;background:#334155;overflow:hidden}.safe-fill{height:100%;border-radius:999px;background:linear-gradient(90deg,#22c55e,#60a5fa)}
+    @media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;animation-duration:.01ms!important;transition-duration:.01ms!important}}
   </style>
 </head>
-<body class="min-h-screen flex flex-col justify-between overflow-x-hidden antialiased">
-
-  <canvas id="confettiCanvas"></canvas>
-
-  <!-- HEADER GLOBALE -->
-  <header class="w-full bg-slate-900/80 backdrop-blur-md border-b border-slate-800 p-3 sm:p-4 sticky top-0 z-40">
-    <div class="max-w-4xl mx-auto flex items-center justify-between">
-      <div class="flex items-center gap-2 cursor-pointer" onclick="app.goHomeConfirm()">
-        <span class="text-2xl sm:text-3xl">🏕️</span>
-        <div>
-          <h1 class="font-extrabold text-base sm:text-xl tracking-wider text-amber-400 uppercase leading-none">
-            FATTORE <span class="text-white">SOPRAVVIVENZA</span>
-          </h1>
-          <p class="text-[10px] sm:text-xs text-slate-400 font-semibold">PARTY GAME MULTIPLAYER</p>
-        </div>
+<body class="min-h-full font-sans antialiased bg-slate-900 text-slate-100 flex flex-col overflow-x-hidden selection:bg-brand-500 selection:text-white">
+  <header class="w-full bg-slate-950/80 border-b border-slate-800 px-4 py-3 sticky top-0 z-50 backdrop-blur-md">
+    <div class="max-w-4xl mx-auto flex items-center justify-between gap-3">
+      <div class="flex items-center space-x-3 cursor-pointer" onclick="app.goHome()">
+        <span class="text-2xl">⚠️</span><div><h1 class="font-extrabold text-lg leading-none tracking-tight gradient-text">FATTORE SOPRAVVIVENZA</h1><span class="text-[10px] text-slate-400 font-semibold tracking-widest uppercase">EDIZIONE V3.0 • PARTY GAME</span></div>
       </div>
-
-      <div class="flex items-center gap-2 sm:gap-3">
-        <!-- Indicatore Connessione -->
-        <div id="connectionBadge" class="hidden flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-slate-800 text-slate-300 border border-slate-700">
-          <span id="connDot" class="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
-          <span id="connText">Online</span>
-        </div>
-
-        <!-- Toggle Audio -->
-        <button id="audioBtn" onclick="app.toggleAudio()" class="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition">
-          <span id="audioIcon" class="text-base sm:text-lg">🔊</span>
-        </button>
+      <div class="flex items-center space-x-3">
+        <div id="statusBadge" class="hidden sm:flex items-center space-x-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-slate-800 border border-slate-700"><span id="statusDot" class="w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse"></span><span id="statusText" class="text-slate-300">Offline</span></div>
+        <button id="audioToggleBtn" onclick="sound.toggleMute()" aria-label="Attiva o disattiva audio" class="w-9 h-9 flex items-center justify-center rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors border border-slate-700"><i id="audioIcon" class="fas fa-volume-high text-brand-500"></i></button>
       </div>
     </div>
   </header>
 
-  <!-- CONTENITORE PRINCIPALE VIEWS -->
-  <main class="flex-1 max-w-4xl w-full mx-auto p-4 flex flex-col justify-center">
-
-    <!-- 1. VIEW HOME -->
-    <section id="viewHome" class="space-y-6">
-      <div class="text-center space-y-2">
-        <span class="inline-block px-3 py-1 bg-amber-500/10 text-amber-400 border border-amber-500/30 rounded-full text-xs font-bold tracking-wide uppercase">
-          🔥 Chi ha l'intuito migliore per sopravvivere?
-        </span>
-        <h2 class="text-3xl sm:text-5xl font-black tracking-tight text-white">
-          Scegli la tua modalità
-        </h2>
-        <p class="text-slate-400 text-sm sm:text-base max-w-md mx-auto">
-          Confronta scenari estremi e scopri chi farebbe la scelta giusta nelle situazioni più disperate!
-        </p>
+  <main class="flex-grow max-w-4xl w-full mx-auto p-4 flex flex-col justify-center">
+    <section id="viewHome" class="space-y-6 text-center py-4">
+      <div class="space-y-3"><div class="inline-block px-4 py-1.5 rounded-full text-xs font-bold bg-brand-500/10 text-brand-500 border border-brand-500/20 uppercase tracking-widest">🔥 Sfida di Sopravvivenza</div>
+        <h2 class="text-3xl sm:text-5xl font-black tracking-tight text-white">Quale situazione ti dà le <span class="gradient-text">MAGGIORI</span> probabilità di vita?</h2>
+        <p class="text-slate-400 text-sm sm:text-base max-w-xl mx-auto">Connettiti con gli amici dal tuo smartphone. Scegli tra scenari reali e assurdi e scopri chi ha l'intuito migliore prima che il timer scada!</p>
       </div>
-
-      <!-- CARDS SELEZIONE MODALITÀ -->
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
-        <!-- MODALITÀ HOST -->
-        <div onclick="app.showHostSetup()" class="bg-slate-800/90 hover:bg-slate-800 border border-slate-700 hover:border-amber-500/60 p-5 rounded-2xl cursor-pointer transition transform hover:-translate-y-1 shadow-xl flex flex-col justify-between group">
-          <div class="space-y-3">
-            <div class="w-12 h-12 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center text-2xl group-hover:scale-110 transition">
-              👑
-            </div>
-            <h3 class="text-xl font-bold text-white">Crea Stanza (Host)</h3>
-            <p class="text-xs text-slate-400">Crea una nuova stanza, genera il QR Code e fai entrare i tuoi amici con i loro telefoni.</p>
-          </div>
-          <div class="mt-4 pt-3 border-t border-slate-700/60 flex items-center text-xs font-bold text-amber-400 group-hover:translate-x-1 transition">
-            Configura Stanza &rarr;
-          </div>
-        </div>
-
-        <!-- MODALITÀ GIOCATORE (UNISCITI) -->
-        <div onclick="app.showJoinForm()" class="bg-slate-800/90 hover:bg-slate-800 border border-slate-700 hover:border-emerald-500/60 p-5 rounded-2xl cursor-pointer transition transform hover:-translate-y-1 shadow-xl flex flex-col justify-between group">
-          <div class="space-y-3">
-            <div class="w-12 h-12 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-2xl group-hover:scale-110 transition">
-              📱
-            </div>
-            <h3 class="text-xl font-bold text-white">Unisciti a Stanza</h3>
-            <p class="text-xs text-slate-400">Inserisci il codice di 4 lettere della stanza o inquadra il QR Code dell'Host.</p>
-          </div>
-          <div class="mt-4 pt-3 border-t border-slate-700/60 flex items-center text-xs font-bold text-emerald-400 group-hover:translate-x-1 transition">
-            Inserisci Codice &rarr;
-          </div>
-        </div>
-
-        <!-- MODALITÀ LOCALE -->
-        <div onclick="app.startLocalGame()" class="bg-slate-800/90 hover:bg-slate-800 border border-slate-700 hover:border-cyan-500/60 p-5 rounded-2xl cursor-pointer transition transform hover:-translate-y-1 shadow-xl flex flex-col justify-between group">
-          <div class="space-y-3">
-            <div class="w-12 h-12 rounded-xl bg-cyan-500/20 text-cyan-400 flex items-center justify-center text-2xl group-hover:scale-110 transition">
-              🎮
-            </div>
-            <h3 class="text-xl font-bold text-white">Passa-e-Gioca</h3>
-            <p class="text-xs text-slate-400">Gioca subito offline passando un solo dispositivo tra gli amici presenti.</p>
-          </div>
-          <div class="mt-4 pt-3 border-t border-slate-700/60 flex items-center text-xs font-bold text-cyan-400 group-hover:translate-x-1 transition">
-            Avvia Locale &rarr;
-          </div>
-        </div>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-md mx-auto pt-2">
+        <button onclick="app.showHostSetup()" class="touch-target group w-full p-4 rounded-2xl bg-gradient-to-r from-brand-600 to-emerald-600 hover:from-brand-500 hover:to-emerald-500 font-bold text-lg text-white shadow-lg transition-all flex items-center justify-center space-x-3"><i class="fas fa-crown text-amber-300 text-xl"></i><span>Crea Nuova Stanza</span></button>
+        <button onclick="app.showJoinScreen()" class="touch-target group w-full p-4 rounded-2xl bg-slate-800 hover:bg-slate-700 border border-slate-700 font-bold text-lg text-white shadow-lg transition-all flex items-center justify-center space-x-3"><i class="fas fa-qrcode text-brand-400 text-xl"></i><span>Unisciti a Stanza</span></button>
       </div>
+      <div class="pt-4"><button onclick="app.startLocalGame()" class="text-xs text-slate-400 hover:text-slate-200 underline flex items-center justify-center space-x-1.5 mx-auto"><i class="fas fa-mobile-screen"></i><span>Oppure gioca offline in "Modalità Passa-Telefono"</span></button></div>
+      <p class="text-[11px] text-slate-500 max-w-lg mx-auto">Le percentuali e i punteggi degli scenari sono valori inventati per il gioco, non stime scientifiche di rischio reale.</p>
     </section>
 
-    <!-- 2. SETUP CREAZIONE STANZA (HOST) -->
-    <section id="viewHostSetup" class="hidden max-w-lg mx-auto w-full bg-slate-800 border border-slate-700 rounded-3xl p-6 shadow-2xl space-y-5">
-      <div class="flex items-center justify-between border-b border-slate-700 pb-3">
-        <h3 class="text-xl font-extrabold text-white flex items-center gap-2">
-          <span>👑</span> Configurazione Stanza
-        </h3>
-        <button onclick="app.showHome()" class="text-xs text-slate-400 hover:text-white">Annulla</button>
-      </div>
-
-      <!-- Ruolo Host -->
-      <div class="space-y-2">
-        <label class="text-xs font-bold text-slate-300 uppercase tracking-wider">Ruolo dell'Host</label>
-        <div class="grid grid-cols-2 gap-2">
-          <button id="btnHostPlay" onclick="app.setHostRole(true)" class="p-3 rounded-xl border-2 text-xs font-bold transition flex items-center justify-center gap-2 border-amber-500 bg-amber-500/10 text-amber-300">
-            <span>👤</span> Host + Giocatore
-          </button>
-          <button id="btnHostTV" onclick="app.setHostRole(false)" class="p-3 rounded-xl border-2 border-slate-700 bg-slate-900/50 text-slate-400 text-xs font-bold transition flex items-center justify-center gap-2">
-            <span>📺</span> Solo Schermo TV/PC
-          </button>
-        </div>
-      </div>
-
-      <!-- Dati Host Giocatore (se attivo) -->
-      <div id="hostPlayerFields" class="space-y-3 bg-slate-900/60 p-4 rounded-2xl border border-slate-700/60">
-        <div>
-          <label class="text-xs font-bold text-slate-300">Il tuo Nome</label>
-          <input type="text" id="hostName" placeholder="Inserisci il tuo nome..." maxlength="14" class="w-full mt-1 bg-slate-800 border border-slate-700 rounded-xl p-3 text-sm text-white focus:outline-none focus:border-amber-500" />
-        </div>
-        <div>
-          <label class="text-xs font-bold text-slate-300">Scegli il tuo Avatar</label>
-          <div id="hostAvatarGrid" class="flex flex-wrap gap-2 mt-1"></div>
-        </div>
-      </div>
-
-      <!-- Opzioni di Gioco -->
-      <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <div>
-          <label class="text-[11px] font-bold text-slate-300 uppercase">Scenari / Round</label>
-          <select id="optScenarios" class="w-full mt-1 bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-xs text-white">
-            <option value="3" selected>3 Scenari</option>
-            <option value="4">4 Scenari</option>
-          </select>
-        </div>
-        <div>
-          <label class="text-[11px] font-bold text-slate-300 uppercase">Timer Voto</label>
-          <select id="optTimer" class="w-full mt-1 bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-xs text-white">
-            <option value="25">25 Secondi</option>
-            <option value="40" selected>40 Secondi</option>
-            <option value="0">Nessun limite</option>
-          </select>
-        </div>
-        <div>
-          <label class="text-[11px] font-bold text-slate-300 uppercase">Vittorie Target</label>
-          <select id="optTargetWins" class="w-full mt-1 bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-xs text-white">
-            <option value="3">3 Vittorie</option>
-            <option value="5" selected>5 Vittorie</option>
-            <option value="7">7 Vittorie</option>
-          </select>
-        </div>
-      </div>
-
-      <button onclick="app.createHostRoom()" class="w-full py-4 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-black text-base rounded-2xl shadow-lg transition transform active:scale-95 flex items-center justify-center gap-2">
-        🚀 CREA STANZA E MOSTRA QR CODE
-      </button>
-    </section>
-
-    <!-- 3. FORM PER UNIRSI ALLA STANZA -->
-    <section id="viewJoinForm" class="hidden max-w-lg mx-auto w-full bg-slate-800 border border-slate-700 rounded-3xl p-6 shadow-2xl space-y-5">
-      <div class="flex items-center justify-between border-b border-slate-700 pb-3">
-        <h3 class="text-xl font-extrabold text-white flex items-center gap-2">
-          <span>📱</span> Entra nella Stanza
-        </h3>
-        <button onclick="app.showHome()" class="text-xs text-slate-400 hover:text-white">Annulla</button>
-      </div>
-
+    <section id="viewHostSetup" class="hidden max-w-md mx-auto w-full glass-card p-6 rounded-3xl space-y-6">
+      <div class="flex items-center space-x-3 border-b border-slate-700/60 pb-4"><button onclick="app.goHome()" class="w-8 h-8 rounded-lg bg-slate-800 flex items-center justify-center text-slate-400 hover:text-white"><i class="fas fa-arrow-left"></i></button><h2 class="text-xl font-bold text-white">Configura Stanza Host</h2></div>
       <div class="space-y-4">
-        <div>
-          <label class="text-xs font-bold text-slate-300 uppercase tracking-wider">Codice Stanza (4 lettere)</label>
-          <input type="text" id="joinRoomCode" placeholder="es. ABCD" uppercase maxlength="4" class="w-full mt-1 bg-slate-900 border-2 border-slate-700 focus:border-emerald-500 rounded-2xl p-3 text-center text-2xl font-black tracking-widest text-emerald-400 uppercase focus:outline-none" />
+        <div><label class="block text-xs font-bold uppercase text-slate-400 mb-2" for="hostNameInput">Nome Host / Giocatore</label><input type="text" id="hostNameInput" placeholder="Inserisci il tuo nome" value="Capo Sopravvissuto" maxlength="15" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-brand-500 font-semibold"></div>
+        <div><label class="block text-xs font-bold uppercase text-slate-400 mb-2">Ruolo dell'Host</label><div class="grid grid-cols-2 gap-2">
+          <button type="button" id="rolePlayerBtn" onclick="app.setHostRole(true)" class="py-2.5 px-3 rounded-xl border border-brand-500 bg-brand-500/20 text-brand-400 font-bold text-sm"><i class="fas fa-gamepad mr-1.5"></i> Host + Gioca</button>
+          <button type="button" id="roleScreenBtn" onclick="app.setHostRole(false)" class="py-2.5 px-3 rounded-xl border border-slate-700 bg-slate-800 text-slate-400 font-bold text-sm"><i class="fas fa-tv mr-1.5"></i> Solo Schermo TV</button>
+        </div></div>
+        <div class="grid grid-cols-2 gap-3"><div><label class="block text-xs font-bold uppercase text-slate-400 mb-2" for="optionsCountSelect">Opzioni Scenario</label><select id="optionsCountSelect" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-3 text-white font-semibold text-sm"><option value="3">3 Scenari per Round</option><option value="4" selected>4 Scenari per Round</option></select></div>
+          <div><label class="block text-xs font-bold uppercase text-slate-400 mb-2" for="timerSelect">Timer Votazione</label><select id="timerSelect" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-3 text-white font-semibold text-sm"><option value="25" selected>25 Secondi</option><option value="40">40 Secondi</option><option value="0">Nessun Limite</option></select></div>
         </div>
-
-        <div>
-          <label class="text-xs font-bold text-slate-300 uppercase tracking-wider">Il tuo Nome</label>
-          <input type="text" id="joinPlayerName" placeholder="Inserisci il tuo nome..." maxlength="14" class="w-full mt-1 bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm text-white focus:outline-none focus:border-emerald-500" />
-        </div>
-
-        <div>
-          <label class="text-xs font-bold text-slate-300 uppercase tracking-wider">Scegli il tuo Avatar</label>
-          <div id="joinAvatarGrid" class="flex flex-wrap gap-2 mt-1"></div>
-        </div>
+        <div><label class="block text-xs font-bold uppercase text-slate-400 mb-2">Server di Connessione</label><div class="grid grid-cols-2 gap-2">
+          <button type="button" id="brokerBtn0" onclick="app.setHostBroker(0)" class="py-2 px-3 rounded-xl border border-brand-500 bg-brand-500/20 text-brand-400 font-bold text-xs">EMQX (Predefinito)</button>
+          <button type="button" id="brokerBtn1" onclick="app.setHostBroker(1)" class="py-2 px-3 rounded-xl border border-slate-700 bg-slate-800 text-slate-400 font-bold text-xs">ConnectMQ (Riserva)</button>
+        </div></div>
       </div>
-
-      <button onclick="app.joinRoomAction()" class="w-full py-4 bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 text-slate-950 font-black text-base rounded-2xl shadow-lg transition transform active:scale-95 flex items-center justify-center gap-2">
-        ✅ ENTRA IN LOBBY
-      </button>
+      <button onclick="app.createRoom()" class="touch-target w-full py-4 rounded-2xl bg-brand-600 hover:bg-brand-500 text-white font-bold text-base shadow-lg transition-all flex items-center justify-center space-x-2"><i class="fas fa-play"></i><span>Apri Lobby Stanza</span></button>
+      <p class="text-[11px] text-slate-500 text-center">Per il multiplayer tutti i dispositivi devono scegliere lo stesso server.</p>
     </section>
 
-    <!-- 4. LOBBY MULTIPLAYER (HOST & GIOCATORI) -->
-    <section id="viewLobby" class="hidden space-y-6">
-      <div class="bg-slate-800 border border-slate-700 rounded-3xl p-5 sm:p-7 shadow-2xl space-y-6">
-        
-        <!-- Header Lobby & Codice -->
-        <div class="flex flex-col md:flex-row items-center justify-between gap-4 border-b border-slate-700 pb-5">
-          <div class="text-center md:text-left space-y-1">
-            <span class="text-xs font-bold uppercase tracking-widest text-slate-400">Codice Stanza Multiplayer</span>
-            <div class="flex items-center justify-center md:justify-start gap-3">
-              <span id="lobbyCodeDisplay" class="text-4xl sm:text-5xl font-black tracking-widest text-amber-400 font-mono">----</span>
-              <button onclick="app.copyRoomLink()" class="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-200 text-xs font-bold rounded-xl border border-slate-600 flex items-center gap-1 transition">
-                <span>📋</span> Copia Link
-              </button>
-              <button onclick="app.shareRoomLink()" class="px-3 py-1.5 bg-emerald-600/30 hover:bg-emerald-600/40 text-emerald-300 text-xs font-bold rounded-xl border border-emerald-500/40 flex items-center gap-1 transition">
-                <span>📲</span> WhatsApp
-              </button>
-            </div>
-          </div>
-
-          <!-- Box QR Code -->
-          <div id="qrContainer" class="bg-white p-2.5 rounded-2xl shadow-md flex flex-col items-center justify-center min-w-[130px]">
-            <div id="qrcode"></div>
-            <span class="text-[10px] text-slate-800 font-bold mt-1">Inquadra e Gioca</span>
-          </div>
+    <section id="viewLobbyHost" class="hidden space-y-6">
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div class="glass-card p-6 rounded-3xl flex flex-col items-center justify-center text-center space-y-4"><div class="space-y-1"><span class="text-xs font-extrabold uppercase tracking-widest text-slate-400">Codice Stanza</span><div id="lobbyRoomCode" class="text-4xl font-black tracking-wider text-brand-400 font-mono">----</div><div id="lobbyServerBadge" class="inline-block px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-slate-800 border border-slate-700 text-slate-300">Server: EMQX</div></div>
+          <div class="bg-white p-3 rounded-2xl shadow-inner border border-slate-200"><div id="qrcode" class="w-44 h-44 flex items-center justify-center"></div></div>
+          <p class="text-xs text-slate-400 max-w-xs">Inquadra il QR col telefono o condividi il link diretto per far accedere i giocatori.</p>
+          <button onclick="app.copyInviteLink()" class="w-full py-2.5 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-bold text-slate-200 flex items-center justify-center space-x-2"><i class="fas fa-copy text-brand-400"></i><span>Copia Link Invito</span></button>
+          <p id="hostLobbyMessage" class="text-xs text-slate-400" aria-live="polite">In attesa dei giocatori…</p>
         </div>
-
-        <!-- Giocatori in Lobby -->
-        <div class="space-y-3">
-          <div class="flex items-center justify-between">
-            <h4 class="text-sm font-extrabold uppercase tracking-wider text-slate-300 flex items-center gap-2">
-              <span>👥</span> Giocatori Connessi (<span id="lobbyPlayerCount">0</span>/10)
-            </h4>
-            <span class="text-xs text-slate-400">Servono almeno 2 giocatori</span>
-          </div>
-
-          <div id="lobbyPlayersList" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-            <!-- Giocatori dinamici -->
-          </div>
-        </div>
-
-        <!-- Azioni Host per iniziare -->
-        <div id="hostLobbyActions" class="hidden pt-4 border-t border-slate-700 space-y-3">
-          <div class="flex flex-col sm:flex-row gap-3">
-            <button id="btnStartGame" onclick="app.startGameAction()" class="flex-1 py-4 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-black text-lg rounded-2xl shadow-xl transition transform active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2">
-              <span>🎮</span> INIZIA LA PARTITA
-            </button>
-            <button onclick="app.startTestSolo()" class="py-4 px-4 bg-slate-700 hover:bg-slate-600 text-slate-200 text-xs font-bold rounded-2xl transition">
-              🧪 Testa da solo
-            </button>
-          </div>
-        </div>
-
-        <div id="playerLobbyWait" class="hidden pt-4 border-t border-slate-700 text-center">
-          <p class="text-amber-400 text-sm font-bold animate-pulse">
-            ⏳ In attesa che l'Host avvii la partita...
-          </p>
+        <div class="md:col-span-2 glass-card p-6 rounded-3xl flex flex-col justify-between space-y-6"><div><div class="flex items-center justify-between border-b border-slate-700/60 pb-3 mb-4"><h3 class="text-lg font-bold text-white flex items-center space-x-2"><i class="fas fa-users text-brand-400"></i><span>Giocatori Connessi</span></h3><span id="playerCountBadge" class="px-3 py-1 rounded-full text-xs font-bold bg-brand-500/20 text-brand-400 border border-brand-500/30">0 / 10</span></div>
+          <div id="lobbyPlayersList" class="grid grid-cols-2 sm:grid-cols-3 gap-3 min-h-[140px] max-h-[220px] overflow-y-auto pr-1"></div></div>
+          <div class="space-y-3 pt-4 border-t border-slate-700/60"><button id="startGameBtn" onclick="app.hostStartGame()" disabled class="touch-target w-full py-4 rounded-2xl bg-brand-600 hover:bg-brand-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-black text-lg shadow-lg transition-all flex items-center justify-center space-x-2"><i class="fas fa-rocket"></i><span>INIZIA IL GIOCO</span></button><p class="text-center text-xs text-slate-400">Servono almeno 2 giocatori per avviare la partita.</p></div>
         </div>
       </div>
     </section>
 
-    <!-- 5. GAMEPLAY: FASE VOTAZIONE -->
-    <section id="viewVoting" class="hidden space-y-5">
-      <!-- Top Info Bar -->
-      <div class="bg-slate-800/90 border border-slate-700 rounded-2xl p-4 flex items-center justify-between shadow-lg">
-        <div>
-          <span id="roundBadge" class="px-2.5 py-1 bg-amber-500/20 text-amber-400 border border-amber-500/30 text-xs font-black rounded-lg uppercase">
-            ROUND 1
-          </span>
-          <h3 id="votingTitle" class="text-sm sm:text-base font-bold text-white mt-1">
-            Quale scenario offre la sopravvivenza PIÙ ALTA?
-          </h3>
-        </div>
-
-        <!-- Timer -->
-        <div id="timerContainer" class="flex flex-col items-end">
-          <span class="text-[10px] text-slate-400 font-bold uppercase">Tempo</span>
-          <div id="timerDisplay" class="text-2xl font-black text-amber-400 font-mono">--s</div>
-        </div>
-      </div>
-
-      <!-- Scenari Cards Grid -->
-      <div id="scenariosGrid" class="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <!-- Scenari generati dinamici -->
-      </div>
-
-      <!-- Stato votazione giocatori -->
-      <div class="bg-slate-800/80 border border-slate-700/80 rounded-2xl p-4 space-y-2">
-        <div class="flex items-center justify-between">
-          <span class="text-xs font-bold text-slate-300 uppercase tracking-wider">Stato Voti Giocatori</span>
-          <span id="votedCountText" class="text-xs font-bold text-amber-400">0 / 0 votato</span>
-        </div>
-        <div id="votedPlayersList" class="flex flex-wrap gap-2 pt-1">
-          <!-- Badges giocatori con spunta -->
-        </div>
-
-        <!-- Tastone Host per forzare il reveal -->
-        <div id="hostForceRevealBox" class="hidden pt-2">
-          <button onclick="app.forceRevealResults()" class="w-full py-2.5 bg-slate-700 hover:bg-slate-600 text-amber-300 text-xs font-bold rounded-xl border border-slate-600 transition">
-            ⚡ Rivelazione Immediata Risultati (Host)
-          </button>
-        </div>
-      </div>
+    <section id="viewLobbyClient" class="hidden max-w-md mx-auto w-full glass-card p-6 rounded-3xl space-y-5 text-center">
+      <div><div class="text-4xl mb-2">🎮</div><h2 class="text-xl font-black">Sei nella lobby!</h2><p class="text-sm text-slate-400 mt-1">Codice stanza: <strong id="clientLobbyCode" class="text-brand-400 font-mono"></strong></p></div>
+      <p id="clientLobbyMessage" class="text-sm text-slate-300">In attesa che l’host inizi la partita…</p>
+      <div id="clientLobbyPlayers" class="grid grid-cols-2 gap-2 text-left"></div>
+      <button onclick="app.leaveGame()" class="text-xs text-slate-500 underline">Esci dalla stanza</button>
     </section>
 
-    <!-- 6. GAMEPLAY: FASE RIVELAZIONE RISULTATI -->
-    <section id="viewReveal" class="hidden space-y-6">
-      <div class="text-center space-y-1">
-        <span class="px-3 py-1 bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-xs font-black rounded-full uppercase">
-          📊 RISULTATI ROUND
-        </span>
-        <h3 class="text-2xl sm:text-3xl font-black text-white">
-          Classifica Percentuali Reali
-        </h3>
+    <section id="viewJoin" class="hidden max-w-md mx-auto w-full glass-card p-6 rounded-3xl space-y-6">
+      <div class="flex items-center space-x-3 border-b border-slate-700/60 pb-4"><button onclick="app.goHome()" class="w-8 h-8 rounded-lg bg-slate-800 flex items-center justify-center text-slate-400 hover:text-white"><i class="fas fa-arrow-left"></i></button><h2 class="text-xl font-bold text-white">Unisciti alla Stanza</h2></div>
+      <div class="space-y-4"><div><label class="block text-xs font-bold uppercase text-slate-400 mb-2" for="joinRoomInput">Codice Stanza (4 Caratteri)</label><input type="text" id="joinRoomInput" placeholder="es. A7K2" maxlength="4" autocomplete="off" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-2xl font-mono font-black tracking-widest text-brand-400 text-center uppercase focus:outline-none focus:border-brand-500"></div>
+        <div><label class="block text-xs font-bold uppercase text-slate-400 mb-2" for="joinNameInput">Il Tuo Nome</label><input type="text" id="joinNameInput" placeholder="Inserisci il tuo nome" maxlength="15" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white font-semibold focus:outline-none focus:border-brand-500"></div>
+        <div><label class="block text-xs font-bold uppercase text-slate-400 mb-2">Scegli Avatar Emoji</label><div id="avatarSelector" class="grid grid-cols-6 gap-2"></div></div>
+        <div><label class="block text-xs font-bold uppercase text-slate-400 mb-2" for="joinBrokerSelect">Server di Connessione</label><select id="joinBrokerSelect" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2.5 text-white font-semibold text-xs"><option value="0">EMQX (Server Predefinito)</option><option value="1">ConnectMQ (Server di Riserva)</option></select></div>
       </div>
-
-      <!-- Risultati Scenari con Barre Animate -->
-      <div id="revealScenariosList" class="space-y-4">
-        <!-- Scenari con percentuali animate -->
-      </div>
-
-      <!-- Voti dei singoli giocatori -->
-      <div class="bg-slate-800 border border-slate-700 rounded-2xl p-4 space-y-3">
-        <h4 class="text-xs font-extrabold text-slate-300 uppercase tracking-wider">
-          Scelte dei Giocatori in questo Round
-        </h4>
-        <div id="playerVotesSummary" class="grid grid-cols-1 sm:grid-cols-2 gap-2">
-          <!-- Riepilogo scelte -->
-        </div>
-      </div>
-
-      <!-- Classifica generale provvisoria -->
-      <div class="bg-slate-800 border border-slate-700 rounded-2xl p-4 space-y-3">
-        <h4 class="text-xs font-extrabold text-slate-300 uppercase tracking-wider flex items-center justify-between">
-          <span>🏆 Classifica Generale Partita</span>
-          <span id="targetWinsLabel" class="text-slate-400 text-[11px]">Obiettivo: 5 Vittorie</span>
-        </h4>
-        <div id="leaderboardList" class="space-y-2">
-          <!-- Leaderboard bar -->
-        </div>
-      </div>
-
-      <!-- Bottone Prossimo Round (Host) -->
-      <div id="hostNextRoundBox" class="hidden">
-        <button onclick="app.nextRoundAction()" class="w-full py-4 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-black text-lg rounded-2xl shadow-xl transition transform active:scale-95 flex items-center justify-center gap-2">
-          <span>▶️</span> PROSSIMO ROUND
-        </button>
-      </div>
-
-      <div id="playerWaitNextBox" class="hidden text-center p-3 bg-slate-800/60 rounded-xl border border-slate-700">
-        <p class="text-slate-300 text-xs font-bold animate-pulse">
-          ⏳ In attesa che l'Host avvii il prossimo round...
-        </p>
-      </div>
+      <div id="joinStatusArea" class="hidden p-3 rounded-xl bg-slate-800/80 border border-slate-700 text-center text-xs space-y-1"><div id="joinStatusMsg" class="font-semibold text-amber-400" aria-live="polite">Connessione in corso...</div></div>
+      <button id="joinSubmitBtn" onclick="app.submitJoin()" class="touch-target w-full py-4 rounded-2xl bg-brand-600 hover:bg-brand-500 text-white font-bold text-base shadow-lg transition-all flex items-center justify-center space-x-2"><i class="fas fa-sign-in-alt"></i><span>Entra in Lobby</span></button>
     </section>
 
-    <!-- 7. SCHERMATA FINALE VITTORIA -->
-    <section id="viewGameOver" class="hidden text-center space-y-6 max-w-lg mx-auto w-full">
-      <div class="bg-slate-800 border border-slate-700 rounded-3xl p-6 sm:p-8 shadow-2xl space-y-6">
-        <div class="space-y-2">
-          <span class="text-5xl">👑</span>
-          <h2 class="text-3xl sm:text-4xl font-black text-amber-400 tracking-tight">
-            CAMPIONE DI SOPRAVVIVENZA!
-          </h2>
-          <p id="winnerNameDisplay" class="text-2xl font-bold text-white">--</p>
-        </div>
-
-        <!-- Podio Top 3 -->
-        <div id="podiumContainer" class="flex justify-center items-end gap-3 pt-4 pb-2">
-          <!-- Generato dinamico -->
-        </div>
-
-        <div id="hostRestartBox" class="hidden pt-2 space-y-3">
-          <button onclick="app.restartSameRoom()" class="w-full py-4 bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 text-slate-950 font-black text-base rounded-2xl shadow-xl transition transform active:scale-95 flex items-center justify-center gap-2">
-            <span>🔄</span> GIOCA ANCORA (STESSA STANZA)
-          </button>
-          <button onclick="app.goHomeConfirm()" class="w-full py-2.5 bg-slate-700 hover:bg-slate-600 text-slate-300 text-xs font-bold rounded-xl transition">
-            Torna al Menu Principale
-          </button>
-        </div>
-      </div>
+    <section id="viewGameplay" class="hidden space-y-6">
+      <div class="glass-card px-5 py-3 rounded-2xl flex items-center justify-between border border-slate-700/60"><div class="flex items-center space-x-3"><span id="roundBadge" class="px-3 py-1 rounded-full text-xs font-black bg-brand-500/20 text-brand-400 border border-brand-500/30 uppercase tracking-wider">ROUND 1</span><span id="suddenDeathBadge" class="hidden px-2.5 py-0.5 rounded-full text-xs font-black bg-rose-500 text-white animate-pulse">🔥 SPAREGGIO</span></div><div class="flex items-center space-x-2 font-mono"><i class="fas fa-clock text-amber-400 text-sm"></i><span id="gameTimer" class="text-xl font-black text-amber-400">25</span></div></div>
+      <div class="text-center space-y-1"><h2 id="phaseTitle" class="text-2xl sm:text-3xl font-black text-white tracking-tight">Scegli la situazione con la MAGGIORE sopravvivenza!</h2><p id="phaseSubtitle" class="text-slate-400 text-xs sm:text-sm">Tocca la scheda dello scenario secondo te più sicuro prima che scadano i secondi.</p></div>
+      <div id="playerTurnBanner" class="hidden text-center rounded-xl border border-amber-500/30 bg-amber-500/10 text-amber-200 p-3 text-sm font-bold"></div>
+      <div id="scenariosContainer" class="grid grid-cols-1 sm:grid-cols-2 gap-4"></div>
+      <div id="hostControlsArea" class="hidden pt-2 flex justify-center"><button onclick="app.hostForceReveal()" class="touch-target px-6 py-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-sm uppercase tracking-wider shadow-lg flex items-center space-x-2"><i class="fas fa-eye"></i><span>Rivela Risultati Ora</span></button></div>
+      <div id="hostNextArea" class="hidden pt-2 flex justify-center"><button onclick="app.hostNextRound()" class="touch-target px-8 py-4 rounded-2xl bg-brand-600 hover:bg-brand-500 text-white font-black text-lg shadow-xl flex items-center space-x-2"><span>PROSSIMO ROUND</span><i class="fas fa-arrow-right"></i></button></div>
+      <div class="glass-card p-5 rounded-3xl space-y-3"><div class="flex items-center justify-between border-b border-slate-700/60 pb-2 gap-3"><h3 class="text-xs font-extrabold uppercase tracking-widest text-slate-400 flex items-center space-x-2"><i class="fas fa-trophy text-amber-400"></i><span>Classifica Live (Obiettivo: 5 Vittorie)</span></h3><span id="votedCountBadge" class="text-xs font-bold text-slate-400 whitespace-nowrap">Voti: 0 / 0</span></div><div id="leaderboardList" class="space-y-2"></div></div>
+      <div class="text-center"><button onclick="app.leaveGame()" class="text-xs text-slate-500 hover:text-slate-300 underline">Esci dalla partita</button></div>
     </section>
 
+    <section id="viewGameOver" class="hidden max-w-xl mx-auto w-full glass-card p-8 rounded-3xl text-center space-y-5"><div class="text-6xl">🏆</div><h2 class="text-3xl font-black gradient-text">PARTITA CONCLUSA!</h2><p id="winnerText" class="text-slate-300">Abbiamo un vincitore!</p><div id="finalLeaderboard" class="space-y-2 text-left"></div><button onclick="app.leaveGame()" class="touch-target w-full py-4 rounded-2xl bg-brand-600 hover:bg-brand-500 text-white font-bold">Torna alla Home</button></section>
   </main>
 
-  <!-- FOOTER -->
-  <footer class="w-full text-center p-3 border-t border-slate-800 bg-slate-900/60 text-[11px] text-slate-500">
-    Fattore Sopravvivenza v3.0 • Multiplayer WebSocket Retained • 100% Autonomo
-  </footer>
+  <footer class="text-center text-[10px] text-slate-600 px-4 pb-4">Fattore Sopravvivenza • Party Game sperimentale • Non usare i punteggi come indicazioni di sicurezza reali</footer>
+  <div id="toast" class="fixed bottom-5 left-1/2 -translate-x-1/2 z-[100] hidden max-w-[90vw] px-4 py-3 rounded-xl bg-slate-100 text-slate-900 shadow-2xl text-sm font-semibold" role="status" aria-live="polite"></div>
 
-  <!-- JAVASCRIPT LOGIC COMPLETA -->
-  <script>
-    /* ==========================================================================
-       DATABASE DI 55 SCENARI ORIGINALI IN ITALIANO (ANIMALI ED ESTREMI)
-       ========================================================================== */
-    const SCENARIOS_DB = [
-      { id: 1, title: 'Orso Grizzly nel Bosco', description: 'Un orso grizzly di 400kg ti carica a 15 metri nel bosco.', category: 'Animale', emoji: '🐻', survivalRate: 28, fact: 'Fingersi morti a pancia in giù protegge gli organi vitali. Gli orsi spesso abbandonano l\'attacco se la minaccia sembra neutralizzata.' },
-      { id: 2, title: 'Ippopotamo Territoriale', description: 'Sei in canoa e un ippopotamo emerso a 20 metri carica la tua imbarcazione.', category: 'Animale', emoji: '🦛', survivalRate: 14, fact: 'L\'ippopotamo è il mammifero terrestre più pericoloso d\'Africa: con morsi da 800 kg/cm² supera perfino i leoni.' },
-      { id: 3, title: 'Squalo Bianco a 10 metri', description: 'Nuoti al largo e avvisti uno squalo bianco di 4 metri che ti gira intorno.', category: 'Animale', emoji: '🦈', survivalRate: 65, fact: 'Mantenere il contatto visivo ed indietreggiare con calma riduce i morsi d\'indagine. Spesso lo squalo non cerca l\'uomo come preda.' },
-      { id: 4, title: 'Polpo dagli Anelli Blu', description: 'Tocchi in mare un piccolo polpo colorato dal morso quasi indolore.', category: 'Animale', emoji: '🐙', survivalRate: 8, fact: 'Inietta tetrodotossina paralyzzante. Senza respirazione artificiale immediata, l\'asfissia sopraggiunge in 15 minuti.' },
-      { id: 5, title: 'Casuario Inferocito', description: 'Un casuario alto 1.80m ti sbarra il sentiero e alza gli artigli a pugnale.', category: 'Animale', emoji: '🦅', survivalRate: 42, fact: 'Considerato l\'uccello più pericoloso al mondo, i suoi artigli da 12 cm possono sventrare con un solo calcio.' },
-      { id: 6, title: 'Varano di Komodo', description: 'Sull\'isola di Komodo, un varano ti morde alla gamba e inizia a inseguirti.', category: 'Animale', emoji: '🦎', survivalRate: 35, fact: 'Il morso inietta anticoagulanti e tossine paralizzanti. Il soccorso medico con siero è essenziale per evitare il collasso.' },
-      { id: 7, title: 'Sciame di Calabroni Asiatici', description: 'Calpesti per sbaglio un nido sotterraneo di calabroni giganti.', category: 'Animale', emoji: '🐝', survivalRate: 52, fact: 'La loro tossina scioglie i tessuti musculari. Sopravvivere dipende dal numero di morsi e dalla tempestività dell\'adrenalina.' },
-      { id: 8, title: 'Mamba Nero in Tenda', description: 'Ti svegli in campeggio e trovi un mamba nero arrotolato ai piedi del sacco a pelo.', category: 'Animale', emoji: '🐍', survivalRate: 19, fact: 'Senza siero antiveleno, il morso del mamba nero ha una mortalità quasi del 100% entro 30 minuti.' },
-      { id: 9, title: 'Alce maschio in calore', description: 'In Nord America un alce di 600kg abbassa le corna e carica verso di te.', category: 'Animale', emoji: '🫎', survivalRate: 72, fact: 'Proteggersi dietro un grosso albero è efficace: gli alci hanno scarsa vista laterale e virano difficilmente.' },
-      { id: 10, title: 'Puma nel Sentiero', description: 'Cammini da solo al tramonto e un puma ti fissa a 10 metri ringhiando.', category: 'Animale', emoji: '🐆', survivalRate: 81, fact: 'Urlare, fare gesti ampi e non scappare mai fa desistere il puma, che attacca solo prede in fuga.' },
-      { id: 11, title: 'Medusa Cubo (Vespa di Mare)', description: 'Sfiori i tentacoli di una medusa cubo nelle acque australiane.', category: 'Animale', emoji: '🪼', survivalRate: 11, fact: 'Il suo veleno blocca il cuore in meno di 5 minuti. L\'aceto sui tentacoli è la prima misura salvavita.' },
-      { id: 12, title: 'Coccodrillo del Nilo', description: 'Un coccodrillo ti afferra per un braccio al margine del fiume.', category: 'Animale', emoji: '🐊', survivalRate: 22, fact: 'Colpire con forza gli occhi o la valvola palatale in fondo alla gola è l\'unica speranza per fargli aprire le fauci.' },
-      { id: 13, title: 'Cinghiale Inferocito', description: 'Un grosso cinghiale con zanne affilate ti carica in un bosco fitto.', category: 'Animale', emoji: '🐗', survivalRate: 88, fact: 'Salire su una roccia o su un albero di un metro elimina ogni pericolo, dato che il cinghiale non salta.' },
-      { id: 14, title: 'Vipera Alpina', description: 'Sei a 2500m di quota e una vipera ti morde alla caviglia.', category: 'Animale', emoji: '🐍', survivalRate: 94, fact: 'I morsi di vipera in Europa sono raramente mortali se si rimane calmi e non si incide la ferita.' },
-      { id: 15, title: 'Branco di Lupi', description: 'Circondato da tre lupi durante una camminata invernale.', category: 'Animale', emoji: '🐺', survivalRate: 76, fact: 'I lupi temono l\'uomo. Mantenere la posizione, mostrare aggressività e lanciare sassi li fa quasi sempre arretrare.' },
-      { id: 16, title: 'Gorilla Silverback', description: 'Incontra un gorilla nella giungla che si batte il petto a 5 metri.', category: 'Animale', emoji: '🦍', survivalRate: 89, fact: 'Chinarsi, evitare il contatto visivo e mostrare sottomissione fa annullare l\'attacco di dominanza.' },
-      { id: 17, title: 'Elefante Africano in Musth', description: 'Un elefante maschio furioso carica la tua jeep durante un safari.', category: 'Animale', emoji: '🐘', survivalRate: 31, fact: 'Il livello di testosterone negli elefanti in musth aumenta di 60 volte: travolgono qualsiasi ostacolo.' },
-      { id: 18, title: 'Cobra Reale', description: 'Ti trovi a un metro da un cobra reale eretto in posizione di attacco.', category: 'Animale', emoji: '🐍', survivalRate: 48, fact: 'Arretrare molto lentamente senza movimenti bruschi permette al cobra di ritirarsi.' },
-      { id: 19, title: 'Pitone Reticolato', description: 'Un pitone di 6 metri si avvolge attorno al tuo torace.', category: 'Animale', emoji: '🐍', survivalRate: 25, fact: 'Senza aiuto esterno per srotolare la coda dal basso, la morsa impedisce la respirazione in pochissimi minuti.' },
-      { id: 20, title: 'Bisonte Americano', description: 'Un bisonte a 15 metri alza la coda e carica verso di te.', category: 'Animale', emoji: '🦬', survivalRate: 58, fact: 'I bisonti corrono a 55 km/h. La salvezza richiede di interporre subito un veicolo o una roccia.' },
-      { id: 21, title: 'Scorpione Giallo del Deserto', description: 'Punto alla mano da uno scorpione giallo in mezzo al deserto.', category: 'Animale', emoji: '🦂', survivalRate: 62, fact: 'Neurotossina potente ma con trattamenti moderni la mortalità negli adulti è contenuta.' },
-      { id: 22, title: 'Rana Freccia Dorata', description: 'Tocchi a mani nude una rana dorata della Colombia con una ferita sulla pelle.', category: 'Animale', emoji: '🐸', survivalRate: 6, fact: 'Un singolo esemplare possiede batracotossina sufficiente a uccidere 10 uomini adulti.' },
-      { id: 23, title: 'Iena Maculata', description: 'Due iene si avvicinano al tuo accampamento notturno.', category: 'Animale', emoji: '🦮', survivalRate: 79, fact: 'Fatti grandi con il fuoco o torce: le iene sono opportuniste e fuggono di fronte a una reazione decisa.' },
-      { id: 24, title: 'Squalo Leuca (Bull Shark)', description: 'Attaccato in acqua bassa da un aggressivo squalo leuca.', category: 'Animale', emoji: '🦈', survivalRate: 40, fact: 'Lo squalo leuca è molto aggressivo per alti livelli di testosterone: reagire colpendo branchie e naso è indispensabile.' },
-      { id: 25, title: 'Tigre del Bengala', description: 'Una tigre ti fissa tra le canne della giungla a 15 metri.', category: 'Animale', emoji: '🐅', survivalRate: 18, fact: 'In India si usano maschere dietro la testa: le tigri attaccano quasi esclusivamente alle spalle.' },
-      
-      // SCENARI ESTREMI
-      { id: 26, title: 'Caduta Aereo da 3000m su Alberi', description: 'Precipiti senza paracadute ma impatti su una fitta foresta innevata.', category: 'Estremo', emoji: '🛩️', survivalRate: 3, fact: 'Vesna Vulović sopravvisse a 10.000m grazie all\'angolo d\'impatto, al fogliame e alla neve accumulata.' },
-      { id: 27, title: 'Ascensore in Caduta Libera (10° piano)', description: 'I cavi dell\'ascensore si spezzano al decimo piano.', category: 'Estremo', emoji: '🛗', survivalRate: 37, fact: 'Sdraiarsi schiena a terra al centro distribuisce la forza d\'urto; saltare prima dell\'impatto è un mito inefficace.' },
-      { id: 28, title: 'Perso nel Sahara per 48 Ore', description: 'La jeep si rompe nel deserto e hai solo 1 litro d\'acqua.', category: 'Estremo', emoji: '🏜️', survivalRate: 54, fact: 'Restare all\'ombra della vettura e muoversi solo di notte riduce drasticamente la disidratazione.' },
-      { id: 29, title: 'Fulmine in Campo Aperto', description: 'Sei in mezzo a un prato durante un temporale con i capelli che si drizzano.', category: 'Estremo', emoji: '⚡', survivalRate: 70, fact: 'Accovacciarsi a piedi uniti riduce la tensione di passo sul terreno se un fulmine cade vicino.' },
-      { id: 30, title: 'Travolto da Valanga', description: 'Una massa di neve ti travolge e ti seppellisce a 1.5 metri di profondità.', category: 'Estremo', emoji: '🏔️', survivalRate: 23, fact: 'Creare una tasca d\'aria davanti al viso prima che la neve si consolidi offre circa 15 minuti di autonomia.' },
-      { id: 31, title: 'Sabbie Mobili', description: 'Affondi fino alla cintola nelle sabbie mobili in una palude.', category: 'Estremo', emoji: '🕳️', survivalRate: 92, fact: 'Le sabbie mobili sono più dense del corpo umano: sdraiarsi all\'indietro fa galleggiare e permette di sfilarsi.' },
-      { id: 32, title: 'Zattera in Oceano per 5 Giorni', description: 'Alla deriva nel Pacifico dopo l\'affondamento della barca a vela.', category: 'Estremo', emoji: '🚣', survivalRate: 45, fact: 'La protezione dal sole e la raccolta di acqua piovana definiscono la sopravvivenza oltre il 3° giorno.' },
-      { id: 33, title: 'Notte a -25°C Senza Tenda', description: 'Bloccato in montagna a -25°C con abbigliamento da trekking semplice.', category: 'Estremo', emoji: '❄️', survivalRate: 33, fact: 'Scavare una buca nella neve (truna) sfrutta le proprietà isolanti della neve aumentando la temperatura interna.' },
-      { id: 34, title: 'Tornado F3 in Auto', description: 'Un tornado imminente solleva detriti attorno alla tua vettura.', category: 'Estremo', emoji: '🌪️', survivalRate: 49, fact: 'Uscire dall\'auto e sdraiarsi in un fossato basso protegge dai detriti volanti ad alta velocità.' },
-      { id: 35, title: 'Nube Piroclastica Vulcanica', description: 'Un\'eruzione vulcanica genera una nube di gas caldo a 3 km di distanza.', category: 'Estremo', emoji: '🌋', survivalRate: 5, fact: 'Le nubi piroclastiche superano i 200 km/h e temperature di 500°C: la fuga in auto laterale è l\'unica via.' },
-      { id: 36, title: 'Morso di Vedova Nera', description: 'Morso al braccio mentre sposti della legna in garage.', category: 'Estremo', emoji: '🕷️', survivalRate: 95, fact: 'Causa forti dolori muscolari ma rari decessi negli adulti sani grazie agli antiveleni moderni.' },
-      { id: 37, title: 'Caduta in Acqua Gelida (2°C)', description: 'Cadi da un ponte in un lago ghiacciato.', category: 'Estremo', emoji: '🧊', survivalRate: 51, fact: 'Regola 1-10-1: 1 min per controllare il respiro, 10 min di movimento utile prima dell\'ipotermia severe.' },
-      { id: 38, title: 'Corrente di Risacca in Mare', description: 'Trascinato a 200 metri dalla spiaggia da una potente corrente marinara.', category: 'Estremo', emoji: '🌊', survivalRate: 85, fact: 'Nuotare parallelamente alla costa anziché contro corrente permette di uscire dal corridoio di risacca.' },
-      { id: 39, title: 'Ragno Violino in Casa', description: 'Militato durante il sonno da un ragno violino sulla gamba.', category: 'Estremo', emoji: '🕷️', survivalRate: 96, fact: 'Nella maggioranza dei casi causa lesioni cutanee localizzate; l\'ospedale previene complicazioni batteriche.' },
-      { id: 40, title: 'Intossicazione da Fugu (Pesce Palla)', description: 'Mangi pesce fugu preparato male in un ristorante clandestino.', category: 'Estremo', emoji: '🐡', survivalRate: 29, fact: 'La tetrodotossina causa paralisi progressiva; il ricovero immediato in terapia intensiva salva la vita.' },
-      { id: 41, title: 'Decompressione Rapida in Aereo', description: 'A 10.000m di quota si apre una falla sulla fusoliera dell\'aereo.', category: 'Estremo', emoji: '✈️', survivalRate: 68, fact: 'Indossare la maschera d\'ossigeno entro 15 secondi previene l\'ipossia prima che i piloti scendano di quota.' },
-      { id: 42, title: 'Caduta in Crepaccio di Ghiaccio', description: 'Scivoli per 10 metri in una spaccatura del ghiacciaio.', category: 'Estremo', emoji: '🏔️', survivalRate: 41, fact: 'I ramponi e la piccozza bloccano la discesa; la cuneatura del corpo riduce l\'impatto nel fondo.' },
-      { id: 43, title: 'Incendio Boschivo in Collina', description: 'Un fronte di fuoco alto 5 metri circonda la tua posizione.', category: 'Estremo', emoji: '🔥', survivalRate: 38, fact: 'Attraversare una zona già bruciata con scarsa vegetazione evita le fiamme alte del fronte attivo.' },
-      { id: 44, title: 'Tsunami in Spiaggia', description: 'Il mare si ritira improvvisamente di 100 metri mentre sei in riva.', category: 'Estremo', emoji: '🌊', survivalRate: 57, fact: 'Correre subito verso l\'interno o salire ai piani alti di un edificio in cemento armato garantisce salvezza.' },
-      { id: 45, title: 'Fulmine in Acqua mentre nuoti', description: 'Un fulmine cade a 30 metri da te mentre ti trovi in mare.', category: 'Estremo', emoji: '⚡', survivalRate: 64, fact: 'L\'acqua salata conduce la carica in superficie; nuotare subacqueo riduce la differenza di potenziale.' },
-      { id: 46, title: 'Incrocio con Anaconda Verde', description: 'Nuoti in un fiume amazzonico e un\'anaconda di 7 metri ti avvolge la gamba.', category: 'Estremo', emoji: '🐍', survivalRate: 30, fact: 'La morsa subacquea punta all\'annegamento: morderne la coda o spingere gli occhi è l\'unica difesa.' },
-      { id: 47, title: 'Attacco di Api Assassine', description: 'Inseguitore da migliaia di api africanizzate altamente aggressive.', category: 'Estremo', emoji: '🐝', survivalRate: 67, fact: 'Correre in linea retta per almeno 400 metri e ripararsi in un veicolo o edificio salvera la vita.' },
-      { id: 48, title: 'Rottura Paracadute Principale', description: 'Lanciato da 3000 metri, il paracadute principale è aggrovigliato.', category: 'Estremo', emoji: '🪂', survivalRate: 84, fact: 'La procedura di emergenza per sganciare il principale e aprire la riserva richiede meno di 5 secondi.' },
-      { id: 49, title: 'Intossicazione da Monossido in Rifugio', description: 'La stufa difettosa riempie il rifugio montano di gas inodore.', category: 'Estremo', emoji: '🪵', survivalRate: 44, fact: 'Sintomi come nausea e vertigini richiedono l\'uscita immediata all\'aria aperta prima della perdita di coscienza.' },
-      { id: 50, title: 'Naufragio in Grotta Sommersa', description: 'Perdita del filo d\'arianna durante un sottomarino speleologico.', category: 'Estremo', emoji: '🪨', survivalRate: 21, fact: 'Mantenere la calma riduce il consumo d\'ossigeno del 50% facilitando il ritrovamento della sagola.' },
-      { id: 51, title: 'Incontro con Squalo Martello', description: 'Circondato da 3 squali martello durante un\'immersione.', category: 'Estremo', emoji: '🦈', survivalRate: 77, fact: 'Gli squali martello sono raramente aggressivi verso l\'uomo se non provocati o in presenza di cibo.' },
-      { id: 52, title: 'Caduta da 10 metri in Acqua', description: 'Tuffo involontario da una scogliera alta 10 metri su rocce affioranti.', category: 'Estremo', emoji: '🌊', survivalRate: 60, fact: 'Entrare perfettamente verticali a piedi uniti fende l\'acqua minimizzando il trauma d\'impatto.' },
-      { id: 53, title: 'Infezione da Rabia da Pipistrello', description: 'Graffiato al collo da un pipistrello in una grotta.', category: 'Estremo', emoji: '🦇', survivalRate: 2, fact: 'Senza vaccinazione post-esposizione prima dei sintomi, la rabbia ha una mortalità del 99.9%.' },
-      { id: 54, title: 'Terremoto Magnitudo 7.5 in Edificio', description: 'Forte scossa sismica mentre sei al 4° piano di un palazzo.', category: 'Estremo', emoji: '🏢', survivalRate: 73, fact: 'La tecnica "Drop, Cover, Hold On" sotto un tavolo solido protegge dalla caduta di calcinacci.' },
-      { id: 55, title: 'Attraversamento Fiume con Piranha', description: 'Fiume popolato da piranha rossi con una piccola ferita al dito.', category: 'Estremo', emoji: '🐟', survivalRate: 87, fact: 'I piranha sono prevalentemente spazzini: attaccano grandi animali solo in condizioni di estrema secca.' }
-    ];
+<script>
+'use strict';
 
-    const AVATARS = ['🦁', '🐯', '🐻', '🐺', '🦊', '🦅', '🦈', '🐊', '🦍', '🦛', '🦏', '🦂'];
+const BROKERS = [
+  { name: 'EMQX', url: 'wss://broker.emqx.io:8084/mqtt' },
+  { name: 'ConnectMQ', url: 'wss://broker.connectmq.com:8084/mqtt' }
+];
+const TOPIC_ROOT = 'fattore-sopravvivenza/v3';
+const AVATARS = ['🧑‍🚀','🦊','🐼','🐯','🐸','🐙','🦄','🐲','🦁','🐵','🐻','🦉'];
+const SCENARIOS = [
+  {title:'Naufragio su un’isola tropicale',description:'Hai acqua di mare, vegetazione e nessun equipaggiamento.',emoji:'🏝️',survival:64},
+  {title:'Bloccato in un rifugio alpino',description:'Hai coperte, viveri per tre giorni e una radio scarica.',emoji:'🏔️',survival:78},
+  {title:'Invasione zombie in città',description:'Sei in un supermercato al piano terra con le uscite bloccate.',emoji:'🧟',survival:22},
+  {title:'Perso nel deserto',description:'Hai una borraccia piena e una bussola, ma nessuna mappa.',emoji:'🏜️',survival:35},
+  {title:'Atterraggio di emergenza nella giungla',description:'L’aereo è fermo, hai un kit di primo soccorso e un coltello.',emoji:'🌴',survival:58},
+  {title:'Blackout totale in una metropoli',description:'La rete telefonica è fuori uso e i trasporti sono fermi.',emoji:'🌃',survival:49},
+  {title:'Tempesta in mare aperto',description:'Sei su una piccola barca con giubbotto salvagente e razzi.',emoji:'🌊',survival:31},
+  {title:'Base scientifica in Antartide',description:'Sei al chiuso con riscaldamento, cibo e radio funzionanti.',emoji:'❄️',survival:84},
+  {title:'Incontro ravvicinato con un orso',description:'Sei su un sentiero e l’animale non ti ha ancora notato.',emoji:'🐻',survival:53},
+  {title:'Eruzione vulcanica',description:'Sei in un paese a valle e la strada principale è chiusa.',emoji:'🌋',survival:28},
+  {title:'Stazione spaziale in avaria',description:'L’ossigeno è stabile, ma le comunicazioni sono interrotte.',emoji:'🛰️',survival:67},
+  {title:'Città colpita da un’inondazione',description:'Sei al primo piano di un edificio solido con una via sul tetto.',emoji:'🌧️',survival:72},
+  {title:'Campeggio durante un temporale',description:'Hai una tenda leggera e sei vicino a un grande albero.',emoji:'⛈️',survival:43},
+  {title:'Incontro con un dinosauro',description:'Un T-Rex ti ha visto e sei in un prato senza ripari.',emoji:'🦖',survival:8},
+  {title:'Villaggio isolato senza elettricità',description:'Hai acqua potabile, una comunità collaborativa e scorte.',emoji:'🏘️',survival:88},
+  {title:'Nave alla deriva',description:'Hai una zattera, acqua dolce per due giorni e un segnalatore.',emoji:'🚢',survival:57}
+];
 
-    /* ==========================================================================
-       CONFIGURAZIONE BROKER MQTT WSS E GESTIONE ARCHITETTURA RETAINED
-       ========================================================================== */
-    const BROKERS = [
-      'wss://broker.emqx.io:8084/mqtt',
-      'wss://broker.hivemq.com:8884/mqtt'
-    ];
+const $ = id => document.getElementById(id);
+const app = {
+  hostRole: true, hostBroker: 0, selectedAvatar: AVATARS[0], client: null, room: '', baseTopic: '', isHost: false,
+  hostPlayerId: null, myPlayerId: null, myName: '', localMode: false, localPlayers: [], localTurn: 0,
+  state: null, votes: {}, timerHandle: null, heartbeatHandle: null, toastHandle: null,
+  joining: false, hasJoinAck: false, ackTimeout: null, lastStateAt: 0,
 
-    /* ==========================================================================
-       GESTIONE AUDIO SINTETICO CON WEB AUDIO API
-       ========================================================================== */
-    class SoundEngine {
-      constructor() {
-        this.enabled = true;
-        this.ctx = null;
-      }
-      init() {
-        if (!this.ctx) {
-          const AudioContext = window.AudioContext || window.webkitAudioContext;
-          if (AudioContext) this.ctx = new AudioContext();
-        }
-      }
-      playTone(freq, type, duration, gainVal = 0.1) {
-        if (!this.enabled) return;
-        this.init();
-        if (!this.ctx) return;
-        try {
-          const osc = this.ctx.createOscillator();
-          const gain = this.ctx.createGain();
-          osc.type = type;
-          osc.frequency.value = freq;
-          gain.gain.setValueAtTime(gainVal, this.ctx.currentTime);
-          gain.gain.exponentialRampToValueAtTime(0.0001, this.ctx.currentTime + duration);
-          osc.connect(gain);
-          gain.connect(this.ctx.destination);
-          osc.start();
-          osc.stop(this.ctx.currentTime + duration);
-        } catch(e) {}
-      }
-      click() { this.playTone(600, 'sine', 0.05, 0.08); }
-      vote() { this.playTone(880, 'triangle', 0.1, 0.12); }
-      reveal() { this.playTone(440, 'square', 0.2, 0.15); }
-      win() {
-        this.playTone(523.25, 'sine', 0.15, 0.15);
-        setTimeout(() => this.playTone(659.25, 'sine', 0.15, 0.15), 150);
-        setTimeout(() => this.playTone(783.99, 'sine', 0.3, 0.2), 300);
-      }
+  init() {
+    this.renderAvatarSelector();
+    const params = new URLSearchParams(location.search);
+    const room = (params.get('room') || '').toUpperCase();
+    const broker = params.get('broker');
+    if (room && /^[A-Z0-9]{4}$/.test(room)) {
+      $('joinRoomInput').value = room;
+      if (broker === '0' || broker === '1') $('joinBrokerSelect').value = broker;
+      this.showJoinScreen();
     }
-    const sound = new SoundEngine();
-
-    /* ==========================================================================
-       APPLICAZIONE PRINCIPALE LOGICA E STATO GIOCO
-       ========================================================================== */
-    class GameApp {
-      constructor() {
-        this.role = null; // 'host' | 'player' | 'local'
-        this.isHostPlayer = true;
-        this.roomCode = '';
-        this.playerId = this.getOrCreatePlayerId();
-        this.playerName = '';
-        this.playerAvatar = '🦁';
-        
-        // MQTT connection variables
-        this.mqttClient = null;
-        this.brokerIdx = 0;
-        this.connectionState = 'disconnected';
-
-        // Stanza e stato sincronizzato
-        this.roomState = null;
-        this.playersMap = {}; // { playerId: playerObj }
-        this.usedScenarioIds = [];
-        this.roundTimerInterval = null;
-        this.wakeLock = null;
-
-        // Modalità locale
-        this.localPlayers = [];
-        this.localCurrentPlayerIdx = 0;
-        this.localVotes = {}; // { playerId: scenarioId }
-      }
-
-      getOrCreatePlayerId() {
-        let id = localStorage.getItem('fs_player_id');
-        if (!id) {
-          id = 'p_' + Math.random().toString(36).substring(2, 9);
-          localStorage.setItem('fs_player_id', id);
-        }
-        return id;
-      }
-
-      init() {
-        this.renderAvatarPickers();
-        this.checkUrlParams();
-        this.registerVisibilityHandler();
-
-        // Controllo sessione salvata
-        const savedRoom = localStorage.getItem('fs_saved_room');
-        const savedRole = localStorage.getItem('fs_saved_role');
-        const savedName = localStorage.getItem('fs_saved_name');
-        const savedAvatar = localStorage.getItem('fs_saved_avatar');
-        
-        if (savedRoom && savedRole && savedName) {
-          this.playerName = savedName;
-          this.playerAvatar = savedAvatar || '🦁';
-          // Piccola notifica o ripristino se l'utente vuole
-        }
-      }
-
-      renderAvatarPickers() {
-        const render = (containerId, selectedVar, onClickFnName) => {
-          const container = document.getElementById(containerId);
-          if (!container) return;
-          container.innerHTML = AVATARS.map(a => `
-            <button type="button" onclick="${onClickFnName}('${a}')" class="avatar-btn text-2xl p-2 rounded-xl border-2 transition ${a === selectedVar ? 'border-amber-400 bg-amber-400/20 scale-105' : 'border-slate-700 bg-slate-900/40 hover:border-slate-500'}">
-              ${a}
-            </button>
-          `).join('');
-        };
-        render('hostAvatarGrid', this.playerAvatar, 'app.selectHostAvatar');
-        render('joinAvatarGrid', this.playerAvatar, 'app.selectJoinAvatar');
-      }
-
-      selectHostAvatar(av) {
-        this.playerAvatar = av;
-        this.renderAvatarPickers();
-        sound.click();
-      }
-
-      selectJoinAvatar(av) {
-        this.playerAvatar = av;
-        this.renderAvatarPickers();
-        sound.click();
-      }
-
-      checkUrlParams() {
-        const urlParams = new URLSearchParams(window.location.search);
-        const roomParam = urlParams.get('room');
-        const brokerParam = urlParams.get('b');
-        if (roomParam) {
-          this.showJoinForm();
-          const input = document.getElementById('joinRoomCode');
-          if (input) input.value = roomParam.toUpperCase().trim();
-          if (brokerParam !== null) {
-            this.brokerIdx = parseInt(brokerParam) || 0;
-          }
-        }
-      }
-
-      registerVisibilityHandler() {
-        document.addEventListener('visibilitychange', () => {
-          if (document.visibilityState === 'visible') {
-            // Se l'Host torna da WhatsApp, riconnetti client se disconnesso
-            if (this.mqttClient && !this.mqttClient.connected) {
-              this.updateConnBadge('reconnecting');
-              this.mqttClient.reconnect();
-            } else if (this.role === 'host' && this.mqttClient && this.mqttClient.connected) {
-              // Riassegna e pubblica stato retained per essere certi
-              this.publishRoomState();
-            }
-          }
-        });
-      }
-
-      toggleAudio() {
-        sound.enabled = !sound.enabled;
-        const icon = document.getElementById('audioIcon');
-        if (icon) icon.textContent = sound.enabled ? '🔊' : '🔇';
-      }
-
-      updateConnBadge(state) {
-        const badge = document.getElementById('connectionBadge');
-        const dot = document.getElementById('connDot');
-        const text = document.getElementById('connText');
-        if (!badge || !dot || !text) return;
-
-        badge.classList.remove('hidden');
-        if (state === 'online') {
-          dot.className = 'w-2 h-2 rounded-full bg-emerald-500 animate-ping';
-          text.textContent = 'Online';
-          badge.className = 'flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-950/80 text-emerald-300 border border-emerald-700/60';
-        } else if (state === 'reconnecting') {
-          dot.className = 'w-2 h-2 rounded-full bg-amber-500 animate-pulse';
-          text.textContent = 'Riconnessione...';
-          badge.className = 'flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-amber-950/80 text-amber-300 border border-amber-700/60';
-        } else {
-          dot.className = 'w-2 h-2 rounded-full bg-rose-500';
-          text.textContent = 'Offline';
-          badge.className = 'flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-rose-950/80 text-rose-300 border border-rose-700/60';
-        }
-      }
-
-      /* ==========================================================================
-         NAVIGAZIONE SCHERMATE & RUOLI
-         ========================================================================== */
-      hideAllViews() {
-        ['viewHome', 'viewHostSetup', 'viewJoinForm', 'viewLobby', 'viewVoting', 'viewReveal', 'viewGameOver']
-          .forEach(id => {
-            const el = document.getElementById(id);
-            if (el) el.classList.add('hidden');
-          });
-      }
-
-      showHome() {
-        sound.click();
-        this.hideAllViews();
-        document.getElementById('viewHome').classList.remove('hidden');
-      }
-
-      goHomeConfirm() {
-        if (this.role && confirm('Vuoi davvero tornare al menu principale ed uscire dalla partita attuale?')) {
-          this.disconnectMQTT();
-          localStorage.removeItem('fs_saved_room');
-          localStorage.removeItem('fs_saved_role');
-          this.role = null;
-          this.showHome();
-        } else if (!this.role) {
-          this.showHome();
-        }
-      }
-
-      showHostSetup() {
-        sound.click();
-        this.hideAllViews();
-        document.getElementById('viewHostSetup').classList.remove('hidden');
-      }
-
-      setHostRole(isPlayer) {
-        sound.click();
-        this.isHostPlayer = isPlayer;
-        const btnPlay = document.getElementById('btnHostPlay');
-        const btnTV = document.getElementById('btnHostTV');
-        const fields = document.getElementById('hostPlayerFields');
-
-        if (isPlayer) {
-          btnPlay.className = 'p-3 rounded-xl border-2 text-xs font-bold transition flex items-center justify-center gap-2 border-amber-500 bg-amber-500/10 text-amber-300';
-          btnTV.className = 'p-3 rounded-xl border-2 border-slate-700 bg-slate-900/50 text-slate-400 text-xs font-bold transition flex items-center justify-center gap-2';
-          fields.classList.remove('hidden');
-        } else {
-          btnTV.className = 'p-3 rounded-xl border-2 text-xs font-bold transition flex items-center justify-center gap-2 border-amber-500 bg-amber-500/10 text-amber-300';
-          btnPlay.className = 'p-3 rounded-xl border-2 border-slate-700 bg-slate-900/50 text-slate-400 text-xs font-bold transition flex items-center justify-center gap-2';
-          fields.classList.add('hidden');
-        }
-      }
-
-      showJoinForm() {
-        sound.click();
-        this.hideAllViews();
-        document.getElementById('viewJoinForm').classList.remove('hidden');
-      }
-
-      /* ==========================================================================
-         CREAZIONE STANZA MULTIPLAYER (HOST)
-         ========================================================================== */
-      generateRoomCode() {
-        const chars = 'ABC DEFGHJKLMNPQRSTUVWXYZ'.replace(/\s/g, '');
-        let code = '';
-        for (let i = 0; i < 4; i++) {
-          code += chars.charAt(Math.floor(Math.random() * chars.length));
-        }
-        return code;
-      }
-
-      async requestWakeLock() {
-        try {
-          if ('wakeLock' in navigator) {
-            this.wakeLock = await navigator.wakeLock.request('screen');
-          }
-        } catch (e) {}
-      }
-
-      createHostRoom() {
-        sound.click();
-        if (this.isHostPlayer) {
-          const nameInput = document.getElementById('hostName');
-          this.playerName = nameInput ? nameInput.value.trim() : '';
-          if (!this.playerName) {
-            alert('Inserisci il tuo nome per continuare!');
-            return;
-          }
-        } else {
-          this.playerName = 'Host Regia 📺';
-        }
-
-        this.role = 'host';
-        this.roomCode = this.generateRoomCode();
-        this.brokerIdx = 0; // parte dal broker primario
-
-        const optScenarios = parseInt(document.getElementById('optScenarios').value) || 3;
-        const optTimer = parseInt(document.getElementById('optTimer').value) || 40;
-        const optTargetWins = parseInt(document.getElementById('optTargetWins').value) || 5;
-
-        // Inizializza Stato Stanza Autorevole
-        this.roomState = {
-          sessionId: Date.now(),
-          roomCode: this.roomCode,
-          phase: 'lobby', // 'lobby' | 'voting' | 'reveal' | 'gameover'
-          round: 1,
-          config: {
-            scenariosPerRound: optScenarios,
-            timerSeconds: optTimer,
-            targetWins: optTargetWins
-          },
-          currentScenarios: [],
-          scores: {}, // { playerId: wins }
-          updatedAt: Date.now()
-        };
-
-        this.playersMap = {};
-        if (this.isHostPlayer) {
-          this.playersMap[this.playerId] = {
-            id: this.playerId,
-            name: this.playerName,
-            avatar: this.playerAvatar,
-            joinedAt: Date.now(),
-            status: 'active',
-            voteIndex: null
-          };
-          this.roomState.scores[this.playerId] = 0;
-        }
-
-        this.requestWakeLock();
-        this.connectMQTTBrokerHost();
-      }
-
-      connectMQTTBrokerHost() {
-        const brokerUrl = BROKERS[this.brokerIdx];
-        this.updateConnBadge('reconnecting');
-
-        try {
-          this.mqttClient = mqtt.connect(brokerUrl, {
-            clientId: 'host_' + this.playerId + '_' + Math.random().toString(36).substring(2, 6),
-            clean: true,
-            connectTimeout: 4000,
-            keepalive: 30
-          });
-
-          this.mqttClient.on('connect', () => {
-            this.updateConnBadge('online');
-            
-            // Topic iscrizione giocatori: fattore-sopravvivenza-v3/room/CODE/players/+
-            const playersTopic = `fattore-sopravvivenza-v3/room/${this.roomCode}/players/+`;
-            this.mqttClient.subscribe(playersTopic, { qos: 1 });
-
-            // Salva sessione in localStorage
-            localStorage.setItem('fs_saved_room', this.roomCode);
-            localStorage.setItem('fs_saved_role', 'host');
-            localStorage.setItem('fs_saved_name', this.playerName);
-            localStorage.setItem('fs_saved_avatar', this.playerAvatar);
-
-            // Pubblica subito lo stato stanza Retained
-            this.publishRoomState();
-            this.renderLobby();
-          });
-
-          this.mqttClient.on('message', (topic, payload) => {
-            this.handleHostIncomingMessage(topic, payload);
-          });
-
-          this.mqttClient.on('error', (err) => {
-            console.warn('MQTT Host error:', err);
-            this.tryFallbackBrokerHost();
-          });
-
-        } catch (e) {
-          this.tryFallbackBrokerHost();
-        }
-      }
-
-      tryFallbackBrokerHost() {
-        if (this.brokerIdx < BROKERS.length - 1) {
-          this.brokerIdx++;
-          console.log('Switching to secondary broker:', BROKERS[this.brokerIdx]);
-          if (this.mqttClient) try { this.mqttClient.end(true); } catch(e){}
-          this.connectMQTTBrokerHost();
-        } else {
-          this.updateConnBadge('offline');
-          alert('Impossibile connettersi al server multiplayer. Verifica la tua connessione internet.');
-        }
-      }
-
-      publishRoomState() {
-        if (!this.mqttClient || !this.mqttClient.connected) return;
-        this.roomState.updatedAt = Date.now();
-        const stateTopic = `fattore-sopravvivenza-v3/room/${this.roomCode}/state`;
-        this.mqttClient.publish(stateTopic, JSON.stringify(this.roomState), { retain: true, qos: 1 });
-      }
-
-      handleHostIncomingMessage(topic, payload) {
-        try {
-          const messageStr = payload.toString();
-          if (!messageStr) return;
-          const data = JSON.parse(messageStr);
-
-          // Messaggio da un giocatore su .../players/PLAYER_ID
-          if (topic.includes(`/players/`)) {
-            if (data && data.id && data.name) {
-              const pId = data.id;
-              
-              // Se è un nuovo giocatore entrato in lobby
-              if (!this.playersMap[pId]) {
-                this.playersMap[pId] = {
-                  id: pId,
-                  name: data.name,
-                  avatar: data.avatar || '🦁',
-                  joinedAt: data.joinedAt || Date.now(),
-                  status: 'active',
-                  voteIndex: null
-                };
-                if (this.roomState.scores[pId] === undefined) {
-                  this.roomState.scores[pId] = 0;
-                }
-                sound.click();
-              } else {
-                // Aggiorna voto o stato se in fase di votazione
-                if (data.voteIndex !== undefined) {
-                  this.playersMap[pId].voteIndex = data.voteIndex;
-                }
-              }
-
-              // Pubblica nuovo stato stanza per tutti
-              this.publishRoomState();
-              this.updateUIForCurrentState();
-            }
-          }
-        } catch(e) {
-          console.error('Error parsing host msg:', e);
-        }
-      }
-
-      /* ==========================================================================
-         INGRESSO GIOCATORE (JOIN ROOM)
-         ========================================================================== */
-      joinRoomAction() {
-        sound.click();
-        const roomInput = document.getElementById('joinRoomCode');
-        const nameInput = document.getElementById('joinPlayerName');
-
-        this.roomCode = roomInput ? roomInput.value.toUpperCase().trim() : '';
-        this.playerName = nameInput ? nameInput.value.trim() : '';
-
-        if (!this.roomCode || this.roomCode.length !== 4) {
-          alert('Inserisci un codice stanza valido di 4 lettere!');
-          return;
-        }
-        if (!this.playerName) {
-          alert('Inserisci il tuo nome per entrare!');
-          return;
-        }
-
-        this.role = 'player';
-        this.updateConnBadge('reconnecting');
-        this.connectMQTTBrokerPlayer();
-      }
-
-      connectMQTTBrokerPlayer() {
-        const brokerUrl = BROKERS[this.brokerIdx];
-
-        try {
-          this.mqttClient = mqtt.connect(brokerUrl, {
-            clientId: 'player_' + this.playerId + '_' + Math.random().toString(36).substring(2, 6),
-            clean: true,
-            connectTimeout: 3500,
-            keepalive: 30
-          });
-
-          let stateReceived = false;
-
-          this.mqttClient.on('connect', () => {
-            this.updateConnBadge('online');
-
-            // Iscriviti al topic dello Stato Stanza retained
-            const stateTopic = `fattore-sopravvivenza-v3/room/${this.roomCode}/state`;
-            this.mqttClient.subscribe(stateTopic, { qos: 1 });
-
-            // Invia presenza del giocatore su topic dedicato retained
-            this.publishPlayerPresence();
-
-            // Timer sicurezza 2.5s se il broker non invia lo stato retained
-            setTimeout(() => {
-              if (!stateReceived && this.role === 'player') {
-                console.warn('State not received on broker 0, trying fallback broker...');
-                this.tryFallbackBrokerPlayer();
-              }
-            }, 2500);
-          });
-
-          this.mqttClient.on('message', (topic, payload) => {
-            if (topic.endsWith('/state')) {
-              try {
-                const stateData = JSON.parse(payload.toString());
-                // Ignora stati più vecchi di 6 ore
-                if (stateData && stateData.sessionId && (Date.now() - stateData.updatedAt < 6 * 3600 * 1000)) {
-                  stateReceived = true;
-                  this.roomState = stateData;
-                  
-                  // Salva sessione in locale
-                  localStorage.setItem('fs_saved_room', this.roomCode);
-                  localStorage.setItem('fs_saved_role', 'player');
-                  localStorage.setItem('fs_saved_name', this.playerName);
-                  localStorage.setItem('fs_saved_avatar', this.playerAvatar);
-
-                  this.updateUIForCurrentState();
-                }
-              } catch(e) {}
-            }
-          });
-
-          this.mqttClient.on('error', (err) => {
-            this.tryFallbackBrokerPlayer();
-          });
-
-        } catch (e) {
-          this.tryFallbackBrokerPlayer();
-        }
-      }
-
-      tryFallbackBrokerPlayer() {
-        if (this.brokerIdx < BROKERS.length - 1) {
-          this.brokerIdx++;
-          if (this.mqttClient) try { this.mqttClient.end(true); } catch(e){}
-          this.connectMQTTBrokerPlayer();
-        } else {
-          this.updateConnBadge('offline');
-          alert('Impossibile trovare la stanza. Verifica il codice o chiedi all\'Host se la stanza è attiva.');
-        }
-      }
-
-      publishPlayerPresence(voteIndex = null) {
-        if (!this.mqttClient || !this.mqttClient.connected) return;
-        const playerTopic = `fattore-sopravvivenza-v3/room/${this.roomCode}/players/${this.playerId}`;
-        const payload = {
-          id: this.playerId,
-          name: this.playerName,
-          avatar: this.playerAvatar,
-          joinedAt: Date.now(),
-          voteIndex: voteIndex,
-          status: 'active'
-        };
-        this.mqttClient.publish(playerTopic, JSON.stringify(payload), { retain: true, qos: 1 });
-      }
-
-      disconnectMQTT() {
-        if (this.mqttClient) {
-          try { this.mqttClient.end(true); } catch(e){}
-          this.mqttClient = null;
-        }
-        this.updateConnBadge('offline');
-      }
-
-      /* ==========================================================================
-         RENDER E AGGIORNAMENTO DINAMICO DELL'INTERFACCIA IN BASE ALLO STATO
-         ========================================================================== */
-      updateUIForCurrentState() {
-        if (!this.roomState) return;
-
-        switch (this.roomState.phase) {
-          case 'lobby':
-            this.renderLobby();
-            break;
-          case 'voting':
-            this.renderVotingView();
-            break;
-          case 'reveal':
-            this.renderRevealView();
-            break;
-          case 'gameover':
-            this.renderGameOverView();
-            break;
-        }
-      }
-
-      renderLobby() {
-        this.hideAllViews();
-        document.getElementById('viewLobby').classList.remove('hidden');
-
-        document.getElementById('lobbyCodeDisplay').textContent = this.roomCode;
-
-        // Genera QR Code
-        const qrContainer = document.getElementById('qrcode');
-        if (qrContainer) {
-          qrContainer.innerHTML = '';
-          const fullUrl = `${window.location.origin}${window.location.pathname}?room=${this.roomCode}&b=${this.brokerIdx}`;
-          
-          try {
-            new QRCode(qrContainer, {
-              text: fullUrl,
-              width: 120,
-              height: 120,
-              colorDark: "#0f172a",
-              colorLight: "#ffffff",
-              correctLevel: QRCode.CorrectLevel.M
-            });
-          } catch(e) {
-            // Fallback a immagine QR via api server
-            qrContainer.innerHTML = `<img src="https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodeURIComponent(fullUrl)}" alt="QR Code" class="w-28 h-28" />`;
-          }
-        }
-
-        // Lista giocatori
-        const playersList = Object.values(this.playersMap.length ? this.playersMap : (this.roomState.playersMap || {}));
-        const countSpan = document.getElementById('lobbyPlayerCount');
-        if (countSpan) countSpan.textContent = playersList.length;
-
-        const grid = document.getElementById('lobbyPlayersList');
-        if (grid) {
-          grid.innerHTML = playersList.map(p => `
-            <div class="bg-slate-900/80 border border-slate-700/80 rounded-2xl p-3 flex items-center gap-3 shadow-md relative">
-              <span class="text-3xl">${p.avatar || '🦁'}</span>
-              <div class="overflow-hidden">
-                <p class="text-xs font-black text-white truncate">${this.escapeHtml(p.name)}</p>
-                <span class="text-[10px] text-emerald-400 font-bold">● Pronto</span>
-              </div>
-              ${this.role === 'host' && p.id !== this.playerId ? `
-                <button onclick="app.kickPlayer('${p.id}')" class="absolute top-1.5 right-1.5 text-slate-500 hover:text-rose-400 text-xs">✕</button>
-              ` : ''}
-            </div>
-          `).join('');
-        }
-
-        // Azioni Host vs Giocatore
-        const hostActions = document.getElementById('hostLobbyActions');
-        const playerWait = document.getElementById('playerLobbyWait');
-        const btnStart = document.getElementById('btnStartGame');
-
-        if (this.role === 'host') {
-          hostActions.classList.remove('hidden');
-          playerWait.classList.add('hidden');
-          if (btnStart) {
-            btnStart.disabled = playersList.length < 2;
-          }
-        } else {
-          hostActions.classList.add('hidden');
-          playerWait.classList.remove('hidden');
-        }
-      }
-
-      kickPlayer(pId) {
-        if (this.role !== 'host') return;
-        delete this.playersMap[pId];
-        delete this.roomState.scores[pId];
-        this.publishRoomState();
-        this.renderLobby();
-      }
-
-      copyRoomLink() {
-        sound.click();
-        const fullUrl = `${window.location.origin}${window.location.pathname}?room=${this.roomCode}&b=${this.brokerIdx}`;
-        
-        if (navigator.clipboard && navigator.clipboard.writeText) {
-          navigator.clipboard.writeText(fullUrl).then(() => {
-            alert('Link della stanza copiato negli appunti!');
-          }).catch(() => this.fallbackCopyText(fullUrl));
-        } else {
-          this.fallbackCopyText(fullUrl);
-        }
-      }
-
-      fallbackCopyText(text) {
-        const textarea = document.createElement('textarea');
-        textarea.value = text;
-        document.body.appendChild(textarea);
-        textarea.select();
-        try {
-          document.execCommand('copy');
-          alert('Link della stanza copiato!');
-        } catch (e) {
-          alert('Copia manualmente questo link: ' + text);
-        }
-        document.body.removeChild(textarea);
-      }
-
-      shareRoomLink() {
-        sound.click();
-        const fullUrl = `${window.location.origin}${window.location.pathname}?room=${this.roomCode}&b=${this.brokerIdx}`;
-        const text = `Entra nella mia stanza di FATTORE SOPRAVVIVENZA! Codice: ${this.roomCode}\n${fullUrl}`;
-        
-        if (navigator.share) {
-          navigator.share({ title: 'Fattore Sopravvivenza', text: text, url: fullUrl }).catch(() => {});
-        } else {
-          window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`, '_blank');
-        }
-      }
-
-      /* ==========================================================================
-         INIZIO PARTITA E ESTRAZIONE SCENARI CON PERCENTUALI UNICHE
-         ========================================================================== */
-      startGameAction() {
-        sound.click();
-        if (this.role !== 'host') return;
-        this.roomState.round = 1;
-        this.usedScenarioIds = [];
-        this.startNewRound();
-      }
-
-      startTestSolo() {
-        sound.click();
-        if (this.role !== 'host') return;
-        this.roomState.round = 1;
-        this.usedScenarioIds = [];
-        this.startNewRound();
-      }
-
-      pickUniqueScenarios(count) {
-        const available = SCENARIOS_DB.filter(s => !this.usedScenarioIds.includes(s.id));
-        const pool = available.length >= count ? available : SCENARIOS_DB; // reset se esauriti
-
-        let selected = [];
-        let attempts = 0;
-
-        while (selected.length < count && attempts < 100) {
-          attempts++;
-          const randomItem = pool[Math.floor(Math.random() * pool.length)];
-          if (selected.some(s => s.id === randomItem.id)) continue;
-
-          // Verifica che la percentuale differisca di almeno 4 punti dagli altri selezionati
-          const isValidGap = selected.every(s => Math.abs(s.survivalRate - randomItem.survivalRate) >= 4);
-          if (isValidGap || attempts > 80) {
-            selected.push(randomItem);
-          }
-        }
-
-        // Marca come usati
-        selected.forEach(s => this.usedScenarioIds.push(s.id));
-        return selected;
-      }
-
-      startNewRound() {
-        if (this.role !== 'host') return;
-
-        // Azzera voti correnti
-        Object.keys(this.playersMap).forEach(pId => {
-          this.playersMap[pId].voteIndex = null;
-        });
-
-        const count = this.roomState.config.scenariosPerRound || 3;
-        const scenariosPicked = this.pickUniqueScenarios(count);
-
-        this.roomState.phase = 'voting';
-        this.roomState.currentScenarios = scenariosPicked;
-        this.roomState.playersMap = this.playersMap;
-        this.roomState.votingEndTime = this.roomState.config.timerSeconds > 0 
-          ? Date.now() + (this.roomState.config.timerSeconds * 1000) 
-          : null;
-
-        this.publishRoomState();
-        this.renderVotingView();
-      }
-
-      /* ==========================================================================
-         FASE VOTAZIONE
-         ========================================================================== */
-      renderVotingView() {
-        this.hideAllViews();
-        document.getElementById('viewVoting').classList.remove('hidden');
-
-        document.getElementById('roundBadge').textContent = `ROUND ${this.roomState.round}`;
-
-        // Griglia Scenari (Senza percentuali)
-        const grid = document.getElementById('scenariosGrid');
-        const myVoteIndex = (this.role === 'player') 
-          ? (this.myLocalVote !== undefined ? this.myLocalVote : null)
-          : (this.playersMap[this.playerId] ? this.playersMap[this.playerId].voteIndex : null);
-
-        grid.innerHTML = this.roomState.currentScenarios.map((sc, idx) => {
-          const isSelected = myVoteIndex === idx;
-          return `
-            <div onclick="app.submitVote(${idx})" class="bg-slate-800 border-2 ${isSelected ? 'border-amber-400 bg-amber-500/10 scale-[1.02]' : 'border-slate-700 hover:border-slate-500'} p-5 rounded-3xl cursor-pointer transition transform shadow-xl flex flex-col justify-between group">
-              <div class="space-y-3">
-                <div class="flex items-center justify-between">
-                  <span class="text-4xl group-hover:scale-110 transition">${sc.emoji}</span>
-                  <span class="px-2.5 py-0.5 rounded-full bg-slate-900 text-slate-400 text-[10px] font-bold uppercase">${sc.category}</span>
-                </div>
-                <h4 class="text-lg font-black text-white leading-snug">${sc.title}</h4>
-                <p class="text-xs text-slate-300 leading-relaxed">${sc.description}</p>
-              </div>
-
-              <div class="mt-4 pt-3 border-t border-slate-700/60 flex items-center justify-between">
-                <span class="text-xs font-bold ${isSelected ? 'text-amber-400' : 'text-slate-400'}">
-                  ${isSelected ? '✓ VOTO SELEZIONATO' : 'Tocca per scegliere questo scenario'}
-                </span>
-                <span class="text-lg">${isSelected ? '⭐' : '👉'}</span>
-              </div>
-            </div>
-          `;
-        }).join('');
-
-        // Gestione Timer
-        this.startTimerCountdown();
-
-        // Stato voti dei giocatori
-        this.updateVotedPlayersBadgeList();
-
-        // Pulsante forza reveal per Host
-        const hostForceBox = document.getElementById('hostForceRevealBox');
-        if (hostForceBox) {
-          if (this.role === 'host') hostForceBox.classList.remove('hidden');
-          else hostForceBox.classList.add('hidden');
-        }
-      }
-
-      submitVote(scenarioIdx) {
-        sound.vote();
-        if (this.roomState.phase !== 'voting') return;
-
-        if (this.role === 'player') {
-          this.myLocalVote = scenarioIdx;
-          this.publishPlayerPresence(scenarioIdx);
-        } else if (this.role === 'host' && this.isHostPlayer) {
-          if (this.playersMap[this.playerId]) {
-            this.playersMap[this.playerId].voteIndex = scenarioIdx;
-          }
-          this.publishRoomState();
-        }
-        this.renderVotingView();
-      }
-
-      startTimerCountdown() {
-        if (this.roundTimerInterval) clearInterval(this.roundTimerInterval);
-
-        const timerDisplay = document.getElementById('timerDisplay');
-        if (!this.roomState.votingEndTime) {
-          if (timerDisplay) timerDisplay.textContent = '∞';
-          return;
-        }
-
-        const updateTimer = () => {
-          const remaining = Math.max(0, Math.ceil((this.roomState.votingEndTime - Date.now()) / 1000));
-          if (timerDisplay) timerDisplay.textContent = `${remaining}s`;
-
-          if (remaining <= 0) {
-            clearInterval(this.roundTimerInterval);
-            if (this.role === 'host') {
-              this.forceRevealResults();
-            }
-          }
-        };
-
-        updateTimer();
-        this.roundTimerInterval = setInterval(updateTimer, 1000);
-      }
-
-      updateVotedPlayersBadgeList() {
-        const pList = Object.values(this.role === 'host' ? this.playersMap : (this.roomState.playersMap || {}));
-        const votedCount = pList.filter(p => p.voteIndex !== null && p.voteIndex !== undefined).length;
-
-        const textSpan = document.getElementById('votedCountText');
-        if (textSpan) textSpan.textContent = `${votedCount} / ${pList.length} votato`;
-
-        const badgeList = document.getElementById('votedPlayersList');
-        if (badgeList) {
-          badgeList.innerHTML = pList.map(p => {
-            const hasVoted = p.voteIndex !== null && p.voteIndex !== undefined;
-            return `
-              <span class="px-2.5 py-1 rounded-xl text-xs font-bold flex items-center gap-1.5 ${hasVoted ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40' : 'bg-slate-700/60 text-slate-400 border border-slate-600'}">
-                <span>${p.avatar || '🦁'}</span>
-                <span>${this.escapeHtml(p.name)}</span>
-                <span>${hasVoted ? '✅' : '⏳'}</span>
-              </span>
-            `;
-          }).join('');
-        }
-
-        // Se tutti hanno votato e sono l'Host, passa subito al reveal
-        if (this.role === 'host' && pList.length > 0 && votedCount >= pList.length) {
-          setTimeout(() => this.forceRevealResults(), 800);
-        }
-      }
-
-      forceRevealResults() {
-        if (this.role !== 'host') return;
-        if (this.roundTimerInterval) clearInterval(this.roundTimerInterval);
-
-        // Calcola vincitori del round
-        const currentScenarios = this.roomState.currentScenarios;
-        // Trova indice dello scenario con percentuale di sopravvivenza PIÙ ALTA
-        let bestScenarioIdx = 0;
-        let highestRate = -1;
-
-        currentScenarios.forEach((sc, idx) => {
-          if (sc.survivalRate > highestRate) {
-            highestRate = sc.survivalRate;
-            bestScenarioIdx = idx;
-          }
-        });
-
-        // Trova lo scenario peggiore (più letale)
-        let worstScenarioIdx = 0;
-        let lowestRate = 999;
-        currentScenarios.forEach((sc, idx) => {
-          if (sc.survivalRate < lowestRate) {
-            lowestRate = sc.survivalRate;
-            worstScenarioIdx = idx;
-          }
-        });
-
-        // Assegna +1 punto a chi ha votato lo scenario migliore
-        Object.values(this.playersMap).forEach(p => {
-          if (p.voteIndex === bestScenarioIdx) {
-            this.roomState.scores[p.id] = (this.roomState.scores[p.id] || 0) + 1;
-          }
-        });
-
-        this.roomState.phase = 'reveal';
-        this.roomState.bestScenarioIdx = bestScenarioIdx;
-        this.roomState.worstScenarioIdx = worstScenarioIdx;
-        this.roomState.playersMap = this.playersMap;
-
-        this.publishRoomState();
-        this.renderRevealView();
-      }
-
-      /* ==========================================================================
-         FASE RIVELAZIONE E CLASSIFICA
-         ========================================================================== */
-      renderRevealView() {
-        sound.reveal();
-        this.hideAllViews();
-        document.getElementById('viewReveal').classList.remove('hidden');
-
-        const currentScenarios = this.roomState.currentScenarios;
-        const bestIdx = this.roomState.bestScenarioIdx;
-        const worstIdx = this.roomState.worstScenarioIdx;
-
-        // Render Barre Percentuali Animate
-        const list = document.getElementById('revealScenariosList');
-        if (list) {
-          list.innerHTML = currentScenarios.map((sc, idx) => {
-            const isWinner = idx === bestIdx;
-            const isWorst = idx === worstIdx;
-
-            let barColor = 'bg-amber-500';
-            if (sc.survivalRate >= 65) barColor = 'bg-emerald-500';
-            else if (sc.survivalRate <= 30) barColor = 'bg-rose-500';
-
-            return `
-              <div class="bg-slate-800 border-2 ${isWinner ? 'border-emerald-400 bg-emerald-950/20 shadow-emerald-900/30 shadow-lg' : 'border-slate-700'} p-5 rounded-3xl space-y-3">
-                <div class="flex items-center justify-between">
-                  <div class="flex items-center gap-2">
-                    <span class="text-3xl">${sc.emoji}</span>
-                    <div>
-                      <h4 class="text-base font-black text-white">${sc.title}</h4>
-                      <span class="text-[10px] text-slate-400 uppercase font-bold">${sc.category}</span>
-                    </div>
-                  </div>
-                  <div class="text-right">
-                    <span class="text-2xl font-black ${isWinner ? 'text-emerald-400' : 'text-white'} font-mono">
-                      ${sc.survivalRate}%
-                    </span>
-                    <span class="block text-[10px] text-slate-400 font-bold uppercase">Sopravvivenza</span>
-                  </div>
-                </div>
-
-                <!-- Barra Progresso Animata -->
-                <div class="w-full h-3 bg-slate-900 rounded-full overflow-hidden p-0.5 border border-slate-700">
-                  <div class="${barColor} h-full rounded-full transition-all duration-1000 ease-out" style="width: ${sc.survivalRate}%"></div>
-                </div>
-
-                <!-- Pillola Scientifica -->
-                <div class="bg-slate-900/70 p-3 rounded-xl border border-slate-700/60 text-xs text-slate-300 leading-relaxed">
-                  💡 <strong class="text-amber-400">Fatto Scientifico:</strong> ${sc.fact}
-                </div>
-
-                ${isWinner ? `
-                  <div class="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 rounded-full text-xs font-extrabold">
-                    🏆 SCELTA VINCENTE (+1 Vittoria)
-                  </div>
-                ` : ''}
-
-                ${isWorst ? `
-                  <div class="inline-flex items-center gap-1.5 px-3 py-1 bg-rose-500/20 text-rose-300 border border-rose-500/40 rounded-full text-xs font-extrabold">
-                    💀 SCELTA PIÙ LETALE
-                  </div>
-                ` : ''}
-              </div>
-            `;
-          }).join('');
-        }
-
-        // Riepilogo Scelte Giocatori
-        const pList = Object.values(this.roomState.playersMap || {});
-        const summary = document.getElementById('playerVotesSummary');
-        if (summary) {
-          summary.innerHTML = pList.map(p => {
-            const scChosen = currentScenarios[p.voteIndex];
-            const isWinner = p.voteIndex === bestIdx;
-            return `
-              <div class="bg-slate-900/60 p-2.5 rounded-xl border border-slate-700/70 flex items-center justify-between">
-                <div class="flex items-center gap-2">
-                  <span class="text-xl">${p.avatar || '🦁'}</span>
-                  <span class="text-xs font-bold text-white">${this.escapeHtml(p.name)}</span>
-                </div>
-                <div class="flex items-center gap-1.5 text-xs font-bold ${isWinner ? 'text-emerald-400' : 'text-slate-400'}">
-                  <span>${scChosen ? scChosen.emoji + ' ' + scChosen.survivalRate + '%' : 'Nessun voto'}</span>
-                  <span>${isWinner ? '⭐' : ''}</span>
-                </div>
-              </div>
-            `;
-          }).join('');
-        }
-
-        // Classifica Generale Aggiornata
-        this.renderLeaderboard();
-
-        // Pulsanti Azioni Host vs Giocatore
-        const hostNextBox = document.getElementById('hostNextRoundBox');
-        const playerWaitBox = document.getElementById('playerWaitNextBox');
-
-        if (this.role === 'host') {
-          if (hostNextBox) hostNextBox.classList.remove('hidden');
-          if (playerWaitBox) playerWaitBox.classList.add('hidden');
-        } else {
-          if (hostNextBox) hostNextBox.classList.add('hidden');
-          if (playerWaitBox) playerWaitBox.classList.remove('hidden');
-        }
-      }
-
-      renderLeaderboard() {
-        const targetWins = this.roomState.config.targetWins || 5;
-        const targetLabel = document.getElementById('targetWinsLabel');
-        if (targetLabel) targetLabel.textContent = `Obiettivo: ${targetWins} Vittorie`;
-
-        const pList = Object.values(this.roomState.playersMap || {});
-        const scores = this.roomState.scores || {};
-
-        // Ordina giocatori per punteggio decrescente
-        pList.sort((a, b) => (scores[b.id] || 0) - (scores[a.id] || 0));
-
-        const container = document.getElementById('leaderboardList');
-        if (container) {
-          container.innerHTML = pList.map(p => {
-            const wins = scores[p.id] || 0;
-            const pct = Math.min(100, Math.round((wins / targetWins) * 100));
-
-            return `
-              <div class="space-y-1">
-                <div class="flex items-center justify-between text-xs font-bold">
-                  <span class="text-white flex items-center gap-1.5">
-                    <span>${p.avatar || '🦁'}</span>
-                    <span>${this.escapeHtml(p.name)}</span>
-                  </span>
-                  <span class="text-amber-400 font-mono">${wins} / ${targetWins} Vittorie</span>
-                </div>
-                <div class="w-full h-2.5 bg-slate-900 rounded-full overflow-hidden border border-slate-700">
-                  <div class="bg-amber-400 h-full rounded-full transition-all duration-700" style="width: ${pct}%"></div>
-                </div>
-              </div>
-            `;
-          }).join('');
-        }
-      }
-
-      nextRoundAction() {
-        sound.click();
-        if (this.role !== 'host') return;
-
-        const targetWins = this.roomState.config.targetWins || 5;
-        const scores = this.roomState.scores || {};
-        const pList = Object.values(this.playersMap);
-
-        // Trova punteggio massimo
-        let maxWins = 0;
-        pList.forEach(p => {
-          const w = scores[p.id] || 0;
-          if (w > maxWins) maxWins = w;
-        });
-
-        // Controlla se qualcuno ha raggiunto o superato il target
-        if (maxWins >= targetWins) {
-          const topPlayers = pList.filter(p => (scores[p.id] || 0) === maxWins);
-
-          // Se c'è un vincitore unico -> GameOver
-          if (topPlayers.length === 1) {
-            this.triggerGameOver(topPlayers[0]);
-            return;
-          } else {
-            // SPAREGGIO (Sudden Death): continua finché non si rompe la parità
-            this.roomState.round++;
-            this.startNewRound();
-            return;
-          }
-        }
-
-        // Altrimenti prossimo round normale
-        this.roomState.round++;
-        this.startNewRound();
-      }
-
-      /* ==========================================================================
-         SCHERMATA FINALE VITTORIA E PODIO
-         ========================================================================== */
-      triggerGameOver(winnerPlayer) {
-        sound.win();
-        this.roomState.phase = 'gameover';
-        this.roomState.winner = winnerPlayer;
-        this.publishRoomState();
-        this.renderGameOverView();
-      }
-
-      renderGameOverView() {
-        this.hideAllViews();
-        document.getElementById('viewGameOver').classList.remove('hidden');
-
-        const winner = this.roomState.winner || { name: 'Giocatore', avatar: '👑' };
-        document.getElementById('winnerNameDisplay').textContent = `${winner.avatar} ${winner.name}`;
-
-        // Lancia confetti
-        this.launchConfetti();
-
-        // Podio
-        const pList = Object.values(this.roomState.playersMap || {});
-        const scores = this.roomState.scores || {};
-        pList.sort((a, b) => (scores[b.id] || 0) - (scores[a.id] || 0));
-
-        const podium = document.getElementById('podiumContainer');
-        if (podium) {
-          const top3 = pList.slice(0, 3);
-          podium.innerHTML = top3.map((p, idx) => {
-            const heights = ['h-32', 'h-24', 'h-20'];
-            const badges = ['🥇 1°', '🥈 2°', '🥉 3°'];
-            return `
-              <div class="flex flex-col items-center">
-                <span class="text-2xl">${p.avatar || '🦁'}</span>
-                <span class="text-xs font-bold text-white truncate max-w-[80px]">${this.escapeHtml(p.name)}</span>
-                <div class="${heights[idx] || 'h-16'} w-20 bg-gradient-to-t from-slate-900 to-slate-700 border border-slate-600 rounded-t-2xl flex flex-col items-center justify-center p-2 mt-1 shadow-lg">
-                  <span class="text-xs font-black text-amber-400">${badges[idx]}</span>
-                  <span class="text-[10px] text-slate-300 font-mono">${scores[p.id] || 0} V</span>
-                </div>
-              </div>
-            `;
-          }).join('');
-        }
-
-        // Bottone riavvio Host
-        const hostRestartBox = document.getElementById('hostRestartBox');
-        if (hostRestartBox) {
-          if (this.role === 'host') hostRestartBox.classList.remove('hidden');
-          else hostRestartBox.classList.add('hidden');
-        }
-      }
-
-      restartSameRoom() {
-        sound.click();
-        if (this.role !== 'host') return;
-
-        // Azzera punteggi e round
-        Object.keys(this.roomState.scores).forEach(k => this.roomState.scores[k] = 0);
-        this.roomState.round = 1;
-        this.usedScenarioIds = [];
-        this.startNewRound();
-      }
-
-      /* ==========================================================================
-         MODALITÀ LOCALE (PASSA-E-GIOCA 1 DISPOSITIVO)
-         ========================================================================== */
-      startLocalGame() {
-        sound.click();
-        const num = prompt('Quanti giocatori partecipano? (2 - 6)', '3');
-        const count = parseInt(num);
-        if (isNaN(count) || count < 2 || count > 6) return;
-
-        this.localPlayers = [];
-        for (let i = 1; i <= count; i++) {
-          const name = prompt(`Nome Giocatore ${i}:`, `Giocatore ${i}`);
-          this.localPlayers.push({
-            id: 'local_' + i,
-            name: name || `Giocatore ${i}`,
-            avatar: AVATARS[(i - 1) % AVATARS.length]
-          });
-        }
-
-        this.role = 'local';
-        this.roomState = {
-          phase: 'voting',
-          round: 1,
-          config: { scenariosPerRound: 3, timerSeconds: 0, targetWins: 5 },
-          currentScenarios: this.pickUniqueScenarios(3),
-          scores: {}
-        };
-        this.localPlayers.forEach(p => this.roomState.scores[p.id] = 0);
-
-        this.startLocalPlayerTurn(0);
-      }
-
-      startLocalPlayerTurn(idx) {
-        this.localCurrentPlayerIdx = idx;
-        const p = this.localPlayers[idx];
-
-        alert(`📱 PASSA IL TELEFONO A:\n\n${p.avatar} ${p.name}\n\nTocca OK per scegliere segretamente la tua risposta.`);
-        this.hideAllViews();
-        document.getElementById('viewVoting').classList.remove('hidden');
-
-        document.getElementById('roundBadge').textContent = `ROUND ${this.roomState.round} - TURNO: ${p.name}`;
-        
-        const grid = document.getElementById('scenariosGrid');
-        grid.innerHTML = this.roomState.currentScenarios.map((sc, sIdx) => `
-          <div onclick="app.submitLocalVote(${sIdx})" class="bg-slate-800 border-2 border-slate-700 hover:border-amber-400 p-5 rounded-3xl cursor-pointer transition transform shadow-xl space-y-3">
-            <span class="text-4xl">${sc.emoji}</span>
-            <h4 class="text-lg font-black text-white">${sc.title}</h4>
-            <p class="text-xs text-slate-300">${sc.description}</p>
-          </div>
-        `).join('');
-      }
-
-      submitLocalVote(sIdx) {
-        sound.vote();
-        const p = this.localPlayers[this.localCurrentPlayerIdx];
-        this.localVotes[p.id] = sIdx;
-
-        if (this.localCurrentPlayerIdx < this.localPlayers.length - 1) {
-          this.startLocalPlayerTurn(this.localCurrentPlayerIdx + 1);
-        } else {
-          // Tutti hanno votato locale
-          this.resolveLocalRound();
-        }
-      }
-
-      resolveLocalRound() {
-        let bestIdx = 0;
-        let highest = -1;
-        this.roomState.currentScenarios.forEach((sc, idx) => {
-          if (sc.survivalRate > highest) {
-            highest = sc.survivalRate;
-            bestIdx = idx;
-          }
-        });
-
-        // Assegna punti
-        this.localPlayers.forEach(p => {
-          if (this.localVotes[p.id] === bestIdx) {
-            this.roomState.scores[p.id] = (this.roomState.scores[p.id] || 0) + 1;
-          }
-        });
-
-        // Adatta playersMap per la vista reveal
-        const pMap = {};
-        this.localPlayers.forEach(p => {
-          pMap[p.id] = { id: p.id, name: p.name, avatar: p.avatar, voteIndex: this.localVotes[p.id] };
-        });
-
-        this.roomState.phase = 'reveal';
-        this.roomState.bestScenarioIdx = bestIdx;
-        this.roomState.worstScenarioIdx = 0;
-        this.roomState.playersMap = pMap;
-
-        this.role = 'host'; // abilita pulsante prossimo round
-        this.renderRevealView();
-      }
-
-      /* ==========================================================================
-         UTILITY CONFETTI CANVAS & UTILS
-         ========================================================================== */
-      launchConfetti() {
-        const canvas = document.getElementById('confettiCanvas');
-        if (!canvas) return;
-        const ctx = canvas.getContext('2d');
-        canvas.width = window.innerWidth;
-        canvas.height = window.innerHeight;
-
-        const pieces = [];
-        const colors = ['#f59e0b', '#10b981', '#06b6d4', '#f43f5e', '#a855f7'];
-
-        for (let i = 0; i < 100; i++) {
-          pieces.push({
-            x: Math.random() * canvas.width,
-            y: Math.random() * canvas.height - canvas.height,
-            size: Math.random() * 8 + 4,
-            color: colors[Math.floor(Math.random() * colors.length)],
-            speed: Math.random() * 3 + 2,
-            angle: Math.random() * 360
-          });
-        }
-
-        let frame = 0;
-        const animate = () => {
-          ctx.clearRect(0, 0, canvas.width, canvas.height);
-          pieces.forEach(p => {
-            p.y += p.speed;
-            p.angle += 2;
-            ctx.save();
-            ctx.translate(p.x, p.y);
-            ctx.rotate((p.angle * Math.PI) / 180);
-            ctx.fillStyle = p.color;
-            ctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size);
-            ctx.restore();
-          });
-
-          frame++;
-          if (frame < 200) requestAnimationFrame(animate);
-          else ctx.clearRect(0, 0, canvas.width, canvas.height);
-        };
-        animate();
-      }
-
-      escapeHtml(str) {
-        if (!str) return '';
-        return str.replace(/[&<>"']/g, m => ({
-          '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;'
-        }[m]));
-      }
+    window.addEventListener('beforeunload', () => this.cleanup(false));
+    this.updateStatus('Offline', 'bg-slate-500', false);
+  },
+
+  showView(id) {
+    ['viewHome','viewHostSetup','viewLobbyHost','viewLobbyClient','viewJoin','viewGameplay','viewGameOver'].forEach(v => $(v).classList.toggle('hidden', v !== id));
+    window.scrollTo({top:0,behavior:'smooth'});
+  },
+  toast(message, duration=3200) {
+    const el = $('toast'); el.textContent = message; el.classList.remove('hidden');
+    clearTimeout(this.toastHandle); this.toastHandle = setTimeout(() => el.classList.add('hidden'), duration);
+  },
+  updateStatus(text, color='bg-slate-500', show=true) {
+    $('statusBadge').classList.toggle('hidden', !show);
+    $('statusText').textContent = text; $('statusDot').className = `w-2.5 h-2.5 rounded-full ${color}`;
+  },
+  showHostSetup() { this.showView('viewHostSetup'); },
+  showJoinScreen() { this.showView('viewJoin'); },
+  goHome() { this.cleanup(true); this.resetSession(); this.showView('viewHome'); this.updateStatus('Offline','bg-slate-500',false); },
+  resetSession() {
+    this.room=''; this.baseTopic=''; this.isHost=false; this.hostPlayerId=null; this.myPlayerId=null; this.myName=''; this.localMode=false;
+    this.localPlayers=[]; this.localTurn=0; this.state=null; this.votes={}; this.joining=false; this.hasJoinAck=false; this.pendingVoteForRound=null;
+  },
+  setHostRole(asPlayer) {
+    this.hostRole = !!asPlayer;
+    $('rolePlayerBtn').className = asPlayer ? 'py-2.5 px-3 rounded-xl border border-brand-500 bg-brand-500/20 text-brand-400 font-bold text-sm' : 'py-2.5 px-3 rounded-xl border border-slate-700 bg-slate-800 text-slate-400 font-bold text-sm';
+    $('roleScreenBtn').className = !asPlayer ? 'py-2.5 px-3 rounded-xl border border-brand-500 bg-brand-500/20 text-brand-400 font-bold text-sm' : 'py-2.5 px-3 rounded-xl border border-slate-700 bg-slate-800 text-slate-400 font-bold text-sm';
+  },
+  setHostBroker(index) {
+    this.hostBroker = index;
+    [0,1].forEach(i => $('brokerBtn'+i).className = i===index ? 'py-2 px-3 rounded-xl border border-brand-500 bg-brand-500/20 text-brand-400 font-bold text-xs' : 'py-2 px-3 rounded-xl border border-slate-700 bg-slate-800 text-slate-400 font-bold text-xs');
+  },
+  renderAvatarSelector() {
+    $('avatarSelector').innerHTML = '';
+    AVATARS.forEach(avatar => {
+      const button = document.createElement('button'); button.type='button'; button.textContent=avatar;
+      button.className = 'h-10 rounded-xl border text-xl ' + (avatar===this.selectedAvatar ? 'border-brand-500 bg-brand-500/20' : 'border-slate-700 bg-slate-900 hover:bg-slate-700');
+      button.addEventListener('click', () => { this.selectedAvatar=avatar; this.renderAvatarSelector(); }); $('avatarSelector').appendChild(button);
+    });
+  },
+  makeId() { return (window.crypto && crypto.randomUUID) ? crypto.randomUUID().replace(/-/g,'').slice(0,16) : Math.random().toString(36).slice(2,18); },
+  makeRoomCode() { const chars='ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; let out=''; for(let i=0;i<4;i++) out+=chars[Math.floor(Math.random()*chars.length)]; return out; },
+  cleanName(value) { return String(value||'').trim().replace(/[<>]/g,'').slice(0,15); },
+  connectBroker(index, clientPrefix) {
+    return new Promise((resolve,reject) => {
+      if (!window.mqtt || typeof mqtt.connect !== 'function') { reject(new Error('Libreria MQTT non caricata. Controlla la connessione Internet.')); return; }
+      const clientId = `${clientPrefix}_${this.makeId()}`;
+      let settled=false;
+      const client=mqtt.connect(BROKERS[index].url, {clientId, clean:true, keepalive:25, connectTimeout:12000, reconnectPeriod:2500, protocolVersion:4, resubscribe:true});
+      const timeout=setTimeout(() => { if(!settled){settled=true; try{client.end(true)}catch(e){} reject(new Error('Il server non risponde. Prova l’altro server o una rete diversa.')); } }, 14000);
+      client.on('connect', () => { if(!settled){settled=true;clearTimeout(timeout);resolve(client);} });
+      client.on('error', err => { console.warn('MQTT error:',err); if(!settled){settled=true;clearTimeout(timeout);reject(err);} else this.toast('Errore di connessione MQTT: '+(err.message||'rete non disponibile')); });
+      client.on('reconnect', () => this.updateStatus('Riconnessione…','bg-amber-500',true));
+      client.on('close', () => this.updateStatus('Disconnesso','bg-rose-500',true));
+      client.on('offline', () => this.updateStatus('Offline','bg-rose-500',true));
+    });
+  },
+  async createRoom() {
+    if (this.client) this.cleanup(true);
+    if (!window.mqtt) { this.toast('MQTT.js non è stato caricato. Verifica Internet e ricarica la pagina.'); return; }
+    const name=this.cleanName($('hostNameInput').value) || 'Host'; $('hostNameInput').value=name;
+    this.myName=name; this.isHost=true; this.localMode=false; this.hostPlayerId=this.makeId(); this.myPlayerId=this.hostRole ? this.hostPlayerId : null;
+    this.room=this.makeRoomCode(); this.baseTopic=`${TOPIC_ROOT}/${this.room}`; this.hostBroker=Number(this.hostBroker);
+    this.updateStatus('Connessione…','bg-amber-500',true);
+    this.toast('Connessione al server '+BROKERS[this.hostBroker].name+'…',5000);
+    try {
+      this.client=await this.connectBroker(this.hostBroker,'fs_host');
+      await this.subscribe(`${this.baseTopic}/in/+`);
+      this.state={version:1,room:this.room,hostOnline:true,hostName:name,phase:'lobby',round:0,goal:5,optionsCount:Number($('optionsCountSelect').value),timerSeconds:Number($('timerSelect').value),deadline:null,players:this.hostRole?[{id:this.hostPlayerId,name,avatar:'👑',score:0,isHost:true,lastSeen:Date.now()}]:[],scenarios:[],bestScenarioIds:[],votes:{},votedIds:[],winnerIds:[],updatedAt:Date.now(),suddenDeath:false};
+      this.client.on('message',(topic,payload)=>this.onHostMessage(topic,payload));
+      this.broadcastState();
+      this.startHostHeartbeat();
+      this.showView('viewLobbyHost');
+      $('lobbyRoomCode').textContent=this.room; $('lobbyServerBadge').textContent='Server: '+BROKERS[this.hostBroker].name;
+      this.renderQRCode(); this.renderLobby(); this.updateStatus('Connesso','bg-brand-500',true);
+    } catch(err) {
+      console.error(err); this.cleanup(true); this.updateStatus('Errore','bg-rose-500',true); this.toast(err.message||'Impossibile collegarsi al server.');
     }
+  },
+  subscribe(topic) {
+    return new Promise((resolve,reject)=>this.client.subscribe(topic,{qos:0},err=>err?reject(err):resolve()));
+  },
+  publish(topic,data,retain=false) {
+    if(!this.client || !this.client.connected) return false;
+    this.client.publish(topic,JSON.stringify(data),{qos:0,retain},err=>{if(err) console.warn('MQTT publish error',err);});
+    return true;
+  },
+  broadcastState() {
+    if (!this.isHost || !this.state) return;
+    this.state.updatedAt=Date.now();
+    const reveal=this.state.phase==='reveal' || this.state.phase==='finished';
+    const safeScenarios=this.state.scenarios.map(s => reveal ? {...s} : ({id:s.id,title:s.title,description:s.description,emoji:s.emoji}));
+    const payload={...this.state,scenarios:safeScenarios,votes:reveal?this.state.votes:{},updatedAt:Date.now()};
+    this.publish(`${this.baseTopic}/state`,payload,true);
+    if(this.state.phase==='lobby') this.renderLobby(); else this.renderGameplay();
+  },
+  startHostHeartbeat() {
+    clearInterval(this.heartbeatHandle);
+    this.heartbeatHandle=setInterval(()=>{
+      if(!this.isHost || !this.state) return;
+      const now=Date.now();
+      if (this.state.phase === 'lobby') this.state.players=this.state.players.filter(p=>p.isHost || now-(p.lastSeen||0)<40000);
+      this.broadcastState();
+    },10000);
+  },
+  onHostMessage(topic,payload) {
+    let msg; try{msg=JSON.parse(payload.toString());}catch(e){return;}
+    if(!msg || typeof msg!=='object' || !msg.id) return;
+    const id=String(msg.id).slice(0,40);
+    if(msg.type==='join') {
+      const existing=this.state.players.find(p=>p.id===id);
+      if(this.state.phase!=='lobby' && !existing) { this.sendAck(id,false,'La partita è già iniziata.'); return; }
+      if(!existing && this.state.players.length>=10) { this.sendAck(id,false,'La stanza è piena (massimo 10 giocatori).'); return; }
+      const player={id,name:this.cleanName(msg.name)||'Giocatore',avatar:AVATARS.includes(msg.avatar)?msg.avatar:AVATARS[0],score:existing?existing.score:0,isHost:false,lastSeen:Date.now()};
+      if(existing) Object.assign(existing,player); else this.state.players.push(player);
+      this.sendAck(id,true,'Accesso effettuato!'); this.broadcastState(); return;
+    }
+    if(msg.type==='ping') {
+      const player=this.state.players.find(p=>p.id===id); if(player) player.lastSeen=Date.now(); return;
+    }
+    if(msg.type==='leave') {
+      this.state.players=this.state.players.filter(p=>p.id!==id); delete this.state.votes[id];
+      this.broadcastState(); return;
+    }
+    if(msg.type==='vote') {
+      const player=this.state.players.find(p=>p.id===id);
+      if(!player || this.state.phase!=='voting') return;
+      if(!this.state.scenarios.some(s=>s.id===msg.scenarioId)) return;
+      this.state.votes[id]=msg.scenarioId; this.state.votedIds=Object.keys(this.state.votes);
+      this.broadcastState();
+      if(this.state.votedIds.length>=this.state.players.length) this.revealResults();
+    }
+  },
+  sendAck(playerId,accepted,message) {
+    this.publish(`${this.baseTopic}/out/${playerId}`,{type:'join_ack',accepted,message,room:this.room,at:Date.now()},false);
+  },
+  renderQRCode() {
+    const box=$('qrcode'); box.innerHTML='';
+    if (location.protocol === 'file:') {
+      box.className='w-44 h-44 flex items-center justify-center text-center text-xs text-slate-700 p-3';
+      box.textContent='Pubblica prima questo file su un indirizzo web HTTPS per condividere il QR.';
+      $('hostLobbyMessage').textContent='Attenzione: aperto come file locale. Gli altri dispositivi non possono aprire il link finché non pubblichi l’HTML su un sito web.';
+      return;
+    }
+    const invite=new URL(location.href); invite.search=''; invite.searchParams.set('room',this.room); invite.searchParams.set('broker',String(this.hostBroker));
+    if(window.QRCode) new QRCode(box,{text:invite.toString(),width:176,height:176,colorDark:'#0f172a',colorLight:'#ffffff',correctLevel:QRCode.CorrectLevel.M});
+    else box.textContent='QR non disponibile';
+  },
+  async copyInviteLink() {
+    if (location.protocol === 'file:') { this.toast('Prima pubblica il file HTML su un sito HTTPS: un link file:// funziona solo sul tuo dispositivo.',5000); return; }
+    const invite=new URL(location.href); invite.search=''; invite.searchParams.set('room',this.room); invite.searchParams.set('broker',String(this.hostBroker));
+    try { await navigator.clipboard.writeText(invite.toString()); this.toast('Link invito copiato!'); }
+    catch(e) { window.prompt('Copia questo link:',invite.toString()); }
+  },
+  renderLobby() {
+    if(!this.state || !this.isHost) return;
+    const players=this.state.players; $('playerCountBadge').textContent=`${players.length} / 10`;
+    $('startGameBtn').disabled=players.length<2;
+    $('hostLobbyMessage').textContent=players.length<2?'Serve almeno un altro giocatore per iniziare.':'Tutti pronti? Puoi iniziare la partita.';
+    const list=$('lobbyPlayersList'); list.innerHTML='';
+    if(!players.length) list.innerHTML='<p class="col-span-full text-center text-sm text-slate-500 py-8">Nessun giocatore. Condividi il QR o il link.</p>';
+    players.forEach(p=>{const div=document.createElement('div');div.className='rounded-xl bg-slate-900/80 border border-slate-700 p-3 flex items-center gap-2';div.innerHTML=`<span class="text-2xl">${p.avatar}</span><div class="min-w-0"><div class="font-bold text-sm truncate"></div><div class="text-[10px] text-slate-500">${p.isHost?'HOST':'GIOCATORE'}</div></div>`;div.querySelector('.font-bold').textContent=p.name;list.appendChild(div);});
+  },
+  async submitJoin() {
+    if(this.joining) return;
+    const room=$('joinRoomInput').value.trim().toUpperCase(); const name=this.cleanName($('joinNameInput').value);
+    if(!/^[A-Z0-9]{4}$/.test(room)){this.toast('Inserisci un codice stanza valido di 4 caratteri.');return;}
+    if(!name){this.toast('Inserisci il tuo nome.');$('joinNameInput').focus();return;}
+    if(!window.mqtt){this.toast('MQTT.js non è stato caricato.');return;}
+    this.joining=true; $('joinSubmitBtn').disabled=true; $('joinStatusArea').classList.remove('hidden'); $('joinStatusMsg').textContent='Connessione al server…'; $('joinStatusMsg').className='font-semibold text-amber-400';
+    this.room=room; this.baseTopic=`${TOPIC_ROOT}/${room}`; this.myName=name; this.myPlayerId=this.makeId(); this.isHost=false; this.localMode=false;
+    const brokerIndex=Number($('joinBrokerSelect').value);
+    try {
+      this.client=await this.connectBroker(brokerIndex,'fs_player');
+      await this.subscribe([`${this.baseTopic}/state`,`${this.baseTopic}/out/${this.myPlayerId}`]);
+      this.client.on('message',(topic,payload)=>this.onClientMessage(topic,payload));
+      this.client.on('connect',()=>{ if(this.client && this.client.connected && (this.joining || this.hasJoinAck)) this.sendJoinRequest(); });
+      this.sendJoinRequest();
+      clearTimeout(this.ackTimeout);
+      this.ackTimeout=setTimeout(()=>{if(!this.hasJoinAck){$('joinStatusMsg').textContent='Nessuna risposta dall’host. Verifica codice, server e che l’host sia ancora online.';$('joinStatusMsg').className='font-semibold text-rose-400';this.joining=false;$('joinSubmitBtn').disabled=false;this.cleanup(true);}},12000);
+      this.updateStatus('Connesso','bg-brand-500',true);
+    } catch(err) {
+      console.error(err); this.cleanup(true); this.joining=false; $('joinSubmitBtn').disabled=false; $('joinStatusMsg').textContent=err.message||'Connessione non riuscita.'; $('joinStatusMsg').className='font-semibold text-rose-400';
+    }
+  },
+  sendJoinRequest() {
+    if(!this.client || !this.client.connected || !this.baseTopic) return;
+    this.publish(`${this.baseTopic}/in/${this.myPlayerId}`,{type:'join',id:this.myPlayerId,name:this.myName,avatar:this.selectedAvatar},false);
+  },
+  onClientMessage(topic,payload) {
+    let msg; try{msg=JSON.parse(payload.toString());}catch(e){return;}
+    if(topic===`${this.baseTopic}/out/${this.myPlayerId}` && msg.type==='join_ack') {
+      clearTimeout(this.ackTimeout);
+      if(!msg.accepted) { $('joinStatusMsg').textContent=msg.message||'Accesso rifiutato.'; $('joinStatusMsg').className='font-semibold text-rose-400'; this.joining=false; $('joinSubmitBtn').disabled=false; this.cleanup(true); return; }
+      this.hasJoinAck=true; this.joining=false; $('joinStatusMsg').textContent='Accesso effettuato!'; $('joinStatusMsg').className='font-semibold text-brand-400'; $('joinSubmitBtn').disabled=true;
+      this.toast('Sei entrato nella stanza '+this.room+'!'); this.startClientHeartbeat();
+      if (this.state) this.showClientState();
+      return;
+    }
+    if(topic===`${this.baseTopic}/state`) {
+      if(!msg || msg.version!==1 || msg.room!==this.room) return;
+      this.lastStateAt=Date.now(); this.state=msg;
+      if(!this.hasJoinAck && msg.phase!=='lobby') { $('joinStatusMsg').textContent='La partita è già iniziata.'; $('joinStatusMsg').className='font-semibold text-rose-400'; }
+      if(this.hasJoinAck) this.showClientState();
+    }
+  },
+  showClientState() {
+    if (!this.state || !this.hasJoinAck) return;
+    if (this.state.phase === 'lobby') {
+      this.showView('viewLobbyClient');
+      $('clientLobbyCode').textContent=this.room;
+      $('clientLobbyMessage').textContent='Sei connesso. Attendi che l’host avvii la partita.';
+      const list=$('clientLobbyPlayers'); list.innerHTML='';
+      (this.state.players||[]).forEach(p=>{const item=document.createElement('div');item.className='rounded-xl bg-slate-900/80 border border-slate-700 p-3 flex items-center gap-2';const av=document.createElement('span');av.className='text-xl';av.textContent=p.avatar;const name=document.createElement('span');name.className='text-sm font-semibold truncate';name.textContent=p.name+(p.isHost?' 👑':'');item.append(av,name);list.appendChild(item);});
+    } else if (this.state.phase === 'voting' || this.state.phase === 'reveal') {
+      this.showView('viewGameplay'); this.renderGameplay();
+    } else if (this.state.phase === 'finished') {
+      this.showView('viewGameOver'); this.renderGameOver();
+    }
+  },
+  startClientHeartbeat() {
+    clearInterval(this.heartbeatHandle);
+    this.heartbeatHandle=setInterval(()=>{this.publish(`${this.baseTopic}/in/${this.myPlayerId}`,{type:'ping',id:this.myPlayerId},false);},12000);
+  },
+  hostStartGame() {
+    if(!this.isHost || !this.state || this.state.players.length<2) return;
+    this.state.round=1; this.state.phase='voting'; this.state.votes={}; this.state.votedIds=[]; this.state.winnerIds=[]; this.state.suddenDeath=false;
+    this.prepareScenarios(); this.startRoundTimer(); this.broadcastState(); this.showView('viewGameplay'); this.toast('La partita è iniziata!');
+  },
+  prepareScenarios() {
+    const pool=[...SCENARIOS];
+    for(let i=pool.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[pool[i],pool[j]]=[pool[j],pool[i]];}
+    this.state.scenarios=pool.slice(0,this.state.optionsCount).map((s,i)=>({...s,id:`r${this.state.round}s${i}`}));
+    this.state.bestScenarioIds=[]; this.state.votes={}; this.state.votedIds=[];
+    this.state.deadline=this.state.timerSeconds>0 ? Date.now()+this.state.timerSeconds*1000 : null;
+  },
+  startRoundTimer() {
+    clearInterval(this.timerHandle);
+    this.timerHandle=setInterval(()=>{
+      if(!this.state || !this.isHost || this.state.phase!=='voting') return;
+      if(this.state.deadline && Date.now()>=this.state.deadline) this.revealResults();
+      else this.updateTimerDisplay();
+    },250);
+  },
+  updateTimerDisplay() {
+    const seconds=this.state && this.state.deadline ? Math.max(0,Math.ceil((this.state.deadline-Date.now())/1000)) : 0;
+    $('gameTimer').textContent=this.state && this.state.timerSeconds===0?'∞':String(seconds);
+    $('gameTimer').classList.toggle('text-rose-400',seconds<=5 && seconds>0);
+  },
+  submitVote(scenarioId) {
+    if(!this.state || this.state.phase!=='voting') return;
+    if(this.localMode) { this.submitLocalVote(scenarioId); return; }
+    if(this.isHost) {
+      if(!this.hostRole || !this.hostPlayerId) return;
+      this.state.votes[this.hostPlayerId]=scenarioId; this.state.votedIds=Object.keys(this.state.votes); this.broadcastState();
+      if(this.state.votedIds.length>=this.state.players.length) this.revealResults();
+    } else {
+      if(!this.hasJoinAck || !this.myPlayerId) return;
+      this.pendingVoteForRound=this.state.round;
+      this.publish(`${this.baseTopic}/in/${this.myPlayerId}`,{type:'vote',id:this.myPlayerId,scenarioId},false);
+      this.toast('Voto inviato!'); this.renderGameplay();
+    }
+  },
+  revealResults() {
+    if(!this.isHost || !this.state || this.state.phase!=='voting') return;
+    clearInterval(this.timerHandle); this.state.phase='reveal'; this.state.deadline=null;
+    const max=Math.max(...this.state.scenarios.map(s=>s.survival));
+    this.state.bestScenarioIds=this.state.scenarios.filter(s=>s.survival===max).map(s=>s.id);
+    this.state.players.forEach(p=>{if(this.state.bestScenarioIds.includes(this.state.votes[p.id])) p.score=(p.score||0)+1;});
+    const highest=Math.max(0,...this.state.players.map(p=>p.score||0));
+    this.state.winnerIds=this.state.players.filter(p=>(p.score||0)>=5 && p.score===highest).map(p=>p.id);
+    this.broadcastState(); this.showView('viewGameplay');
+    if(this.state.winnerIds.length) this.finishGame(); else this.toast('Risultati rivelati!');
+  },
+  hostForceReveal() { this.revealResults(); },
+  hostNextRound() {
+    if(!this.isHost || !this.state || this.state.phase!=='reveal' || this.state.winnerIds.length) return;
+    this.state.round+=1; this.state.phase='voting'; this.state.suddenDeath=false; this.pendingVoteForRound=null; this.prepareScenarios(); this.startRoundTimer(); this.broadcastState();
+  },
+  finishGame() {
+    if(!this.isHost || !this.state) return;
+    this.state.phase='finished'; clearInterval(this.timerHandle); this.broadcastState(); this.showView('viewGameOver'); this.renderGameOver();
+  },
+  renderGameplay() {
+    if(!this.state) return;
+    const s=this.state; $('roundBadge').textContent=`ROUND ${s.round||1}`; $('suddenDeathBadge').classList.toggle('hidden',!s.suddenDeath);
+    const isVoting=s.phase==='voting'; const isReveal=s.phase==='reveal';
+    $('phaseTitle').textContent=isVoting?'Scegli la situazione con la MAGGIORE sopravvivenza!': 'Ecco i risultati del round';
+    $('phaseSubtitle').textContent=isVoting?'Tocca lo scenario che ritieni più sicuro. Un solo voto per giocatore.': 'La scheda con la percentuale più alta è la risposta corretta.';
+    $('hostControlsArea').classList.toggle('hidden',!(this.isHost && isVoting));
+    $('hostNextArea').classList.toggle('hidden',!(this.isHost && isReveal && !(s.winnerIds||[]).length));
+    $('hostNextArea').querySelector('button').disabled=!this.isHost;
+    const voted = s.votedIds || []; const total=s.players?s.players.length:0;
+    $('votedCountBadge').textContent=`Voti: ${voted.length} / ${total}`;
+    this.updateTimerDisplay();
+    const activePlayerId=this.localMode ? this.localPlayers[this.localTurn]?.id : (this.isHost ? this.hostPlayerId : this.myPlayerId);
+    const alreadyVoted=this.localMode ? !!(s.votes||{})[activePlayerId] : ((s.votedIds||[]).includes(activePlayerId) || !!(this.isHost && (s.votes||{})[activePlayerId]) || this.pendingVoteForRound===s.round);
+    const canVote=isVoting && (this.localMode || (this.isHost ? this.hostRole : this.hasJoinAck)) && !alreadyVoted;
+    $('playerTurnBanner').classList.toggle('hidden',!this.localMode);
+    if(this.localMode) $('playerTurnBanner').textContent=`Passa il telefono a ${this.localPlayers[this.localTurn]?.name || 'prossimo giocatore'} e fai scegliere senza guardare i voti precedenti.`;
+    const container=$('scenariosContainer'); container.innerHTML='';
+    s.scenarios.forEach(scenario=>{
+      const isBest=(s.bestScenarioIds||[]).includes(scenario.id); const chosenBy=Object.entries(s.votes||{}).filter(([,v])=>v===scenario.id).length;
+      const card=document.createElement('button'); card.type='button'; card.disabled=!canVote;
+      card.className=`scenario-card text-left glass-card p-5 rounded-2xl border ${isReveal && isBest?'border-brand-400 bg-brand-500/10': 'border-slate-700'} ${canVote?'hover:border-brand-400 hover:bg-slate-800':''}`;
+      const header=document.createElement('div');header.className='flex items-start justify-between gap-3';
+      const emoji=document.createElement('div');emoji.className='text-4xl';emoji.textContent=scenario.emoji;
+      const content=document.createElement('div');content.className='flex-1';
+      const title=document.createElement('h3');title.className='font-black text-white text-lg leading-tight';title.textContent=scenario.title;
+      const description=document.createElement('p');description.className='text-sm text-slate-400 mt-2';description.textContent=scenario.description;
+      content.append(title,description);header.append(emoji,content);card.append(header);
+      if(isReveal){
+        const rate=document.createElement('div');rate.className='mt-4';rate.innerHTML=`<div class="flex justify-between text-xs font-bold mb-2"><span class="text-slate-400">Indice di sopravvivenza (gioco)</span><span class="${isBest?'text-brand-400':'text-slate-300'}">${Number(scenario.survival)}%</span></div><div class="safe-bar"><div class="safe-fill" style="width:${Math.max(0,Math.min(100,Number(scenario.survival)))}%"></div></div>`;card.append(rate);
+        if(isBest){const correct=document.createElement('div');correct.className='mt-3 text-xs font-black text-brand-400';correct.textContent='✓ SCENARIO MIGLIORE';card.append(correct);}
+        const voteCount=document.createElement('div');voteCount.className='mt-2 text-xs text-slate-500';voteCount.textContent=`Voti ricevuti: ${chosenBy}`;card.append(voteCount);
+      } else {
+        const hint=document.createElement('div');hint.className='mt-4 text-xs font-bold text-brand-400';hint.textContent=canVote?'Tocca per votare': (alreadyVoted?'Voto registrato':'In attesa dei voti…');card.append(hint);
+      }
+      if(canVote) card.addEventListener('click',()=>this.submitVote(scenario.id));
+      container.appendChild(card);
+    });
+    this.renderLeaderboard();
+    if(s.phase==='finished'){this.showView('viewGameOver');this.renderGameOver();}
+  },
+  renderLeaderboard() {
+    const list=$('leaderboardList'); list.innerHTML='';
+    const players=[...(this.state?.players||[])].sort((a,b)=>(b.score||0)-(a.score||0));
+    players.forEach((p,index)=>{const row=document.createElement('div');row.className='flex items-center gap-3';const rank=document.createElement('span');rank.className='w-5 text-xs text-slate-500 font-bold';rank.textContent=String(index+1)+'.';const avatar=document.createElement('span');avatar.className='text-xl';avatar.textContent=p.avatar;const name=document.createElement('span');name.className='flex-1 min-w-0 text-sm font-semibold truncate';name.textContent=p.name+(p.isHost?' 👑':'');const score=document.createElement('span');score.className='text-sm font-black text-amber-400';score.textContent=`${p.score||0}/5`;row.append(rank,avatar,name,score);list.appendChild(row);});
+    if(!players.length) list.innerHTML='<p class="text-xs text-slate-500">Nessun giocatore.</p>';
+  },
+  renderGameOver() {
+    const winners=(this.state?.players||[]).filter(p=>(this.state.winnerIds||[]).includes(p.id));
+    $('winnerText').textContent=winners.length>1?'Pareggio! Vincitori: '+winners.map(p=>p.name).join(', '):`Il vincitore è ${winners[0]?.name||'—'}!`;
+    $('finalLeaderboard').innerHTML='';
+    [...(this.state?.players||[])].sort((a,b)=>(b.score||0)-(a.score||0)).forEach((p,i)=>{const row=document.createElement('div');row.className='flex items-center gap-3 p-3 rounded-xl bg-slate-900/70';row.innerHTML=`<span class="text-slate-500 font-bold">${i+1}.</span><span class="text-xl">${p.avatar}</span><span class="flex-1 font-semibold"></span><strong class="text-amber-400">${p.score||0} vittorie</strong>`;row.querySelector('.flex-1').textContent=p.name; $('finalLeaderboard').appendChild(row);});
+  },
 
-    // Istanziazione globale dell'applicazione
-    const app = new GameApp();
-    window.onload = () => app.init();
-  </script>
+  startLocalGame() {
+    const raw=window.prompt('Quanti giocatori partecipano? (2–10)','3'); if(raw===null)return;
+    const count=Math.max(2,Math.min(10,parseInt(raw,10)||2)); const players=[];
+    for(let i=0;i<count;i++){const name=window.prompt(`Nome giocatore ${i+1}:`,`Giocatore ${i+1}`);players.push({id:`local${i}`,name:this.cleanName(name)||`Giocatore ${i+1}`,avatar:AVATARS[i%AVATARS.length],score:0,isHost:false});}
+    this.cleanup(true); this.resetSession(); this.localMode=true; this.isHost=true; this.localPlayers=players; this.localTurn=0;
+    this.state={version:1,room:'OFFLINE',phase:'voting',round:1,goal:5,optionsCount:Number($('optionsCountSelect')?.value||4),timerSeconds:0,deadline:null,players:this.localPlayers,scenarios:[],bestScenarioIds:[],votes:{},votedIds:[],winnerIds:[],suddenDeath:false};
+    this.prepareScenarios(); this.showView('viewGameplay'); this.renderGameplay(); this.updateStatus('Offline','bg-slate-500',true);
+  },
+  submitLocalVote(scenarioId) {
+    const player=this.localPlayers[this.localTurn]; if(!player || this.state.votes[player.id]) return;
+    this.state.votes[player.id]=scenarioId; this.state.votedIds=Object.keys(this.state.votes);
+    if(this.localTurn<this.localPlayers.length-1){this.localTurn++;this.renderGameplay();}
+    else this.revealLocalResults();
+  },
+  revealLocalResults() {
+    this.state.phase='reveal';const max=Math.max(...this.state.scenarios.map(s=>s.survival));this.state.bestScenarioIds=this.state.scenarios.filter(s=>s.survival===max).map(s=>s.id);
+    this.state.players.forEach(p=>{if(this.state.bestScenarioIds.includes(this.state.votes[p.id]))p.score++;});
+    const top=Math.max(...this.state.players.map(p=>p.score));this.state.winnerIds=this.state.players.filter(p=>p.score>=5 && p.score===top).map(p=>p.id);
+    this.renderGameplay();if(this.state.winnerIds.length){this.state.phase='finished';this.showView('viewGameOver');this.renderGameOver();}
+  },
+  localNextRound() {
+    if(this.state.phase!=='reveal' || this.state.winnerIds.length)return;
+    this.state.round++;this.state.phase='voting';this.pendingVoteForRound=null;this.state.votes={};this.state.votedIds=[];this.localTurn=0;this.prepareScenarios();this.renderGameplay();
+  },
+  leaveGame() { this.cleanup(true); this.resetSession(); this.showView('viewHome'); this.updateStatus('Offline','bg-slate-500',false); },
+  cleanup(sendLeave=true) {
+    clearInterval(this.timerHandle);clearInterval(this.heartbeatHandle);clearTimeout(this.ackTimeout);
+    if(this.client){
+      try{if(sendLeave && !this.isHost && this.myPlayerId && this.baseTopic) this.publish(`${this.baseTopic}/in/${this.myPlayerId}`,{type:'leave',id:this.myPlayerId},false);}catch(e){}
+      try{this.client.end(true);}catch(e){} this.client=null;
+    }
+    this.joining=false;
+  }
+};
+
+// Override the next-round action for the offline pass-the-phone mode.
+const originalNextRound=app.hostNextRound.bind(app);
+app.hostNextRound=function(){ if(this.localMode) this.localNextRound(); else originalNextRound(); };
+
+const sound={muted:false,ctx:null,toggleMute(){this.muted=!this.muted;$('audioIcon').className=this.muted?'fas fa-volume-xmark text-slate-400':'fas fa-volume-high text-brand-500';app.toast(this.muted?'Audio disattivato':'Audio attivato');},play(frequency=660,duration=.08){if(this.muted)return;try{this.ctx=this.ctx||new (window.AudioContext||window.webkitAudioContext)();const osc=this.ctx.createOscillator(),gain=this.ctx.createGain();osc.frequency.value=frequency;gain.gain.value=.04;osc.connect(gain);gain.connect(this.ctx.destination);osc.start();gain.gain.exponentialRampToValueAtTime(.001,this.ctx.currentTime+duration);osc.stop(this.ctx.currentTime+duration);}catch(e){}}};
+
+// The offline round button reuses the same control area.
+const originalRenderGameplay=app.renderGameplay.bind(app);
+app.renderGameplay=function(){originalRenderGameplay();if(this.localMode){$('hostNextArea').classList.toggle('hidden',this.state.phase!=='reveal'||!!this.state.winnerIds.length);$('hostControlsArea').classList.add('hidden');$('hostNextArea').querySelector('button').disabled=false;}};
+
+window.app=app; window.sound=sound;
+window.addEventListener('DOMContentLoaded',()=>app.init());
+</script>
 </body>
 </html>
-```
