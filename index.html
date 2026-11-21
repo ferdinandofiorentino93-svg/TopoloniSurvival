@@ -4,12 +4,12 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <meta name="theme-color" content="#0f172a">
-  <title>Fattore Sopravvivenza v3.1 - Party Game Multiplayer</title>
+  <title>Fattore Sopravvivenza v3.2 - Comic Book Edition</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://unpkg.com/mqtt@5.10.1/dist/mqtt.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&family=Bangers&family=Barlow+Condensed:wght@500;600;700;800;900&display=swap" rel="stylesheet">
   <script>
     tailwind.config = { theme: { extend: {
       fontFamily: { sans: ['Inter', 'sans-serif'] },
@@ -23,13 +23,294 @@
     .scenario-card{transition:transform .15s ease,border-color .15s ease,background .15s ease}.scenario-card:active{transform:scale(.985)}
     .scenario-card:disabled{cursor:not-allowed;opacity:.72}.safe-bar{height:8px;border-radius:999px;background:#334155;overflow:hidden}.safe-fill{height:100%;border-radius:999px;background:linear-gradient(90deg,#22c55e,#60a5fa)}
     @media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;animation-duration:.01ms!important;transition-duration:.01ms!important}}
+  
+
+  /* ============================================================
+     COMIC BOOK EXPLOSIVE THEME — visual-only layer (v3.2)
+     No game, MQTT, voting, timer or scenario logic is changed.
+     ============================================================ */
+  :root {
+    --comic-ink: #100f18;
+    --comic-panel: #201d2d;
+    --comic-panel-2: #292438;
+    --comic-paper: #fff8e8;
+    --comic-white: #fffdf7;
+    --comic-muted: #c4bfd0;
+    --comic-pink: #ff3478;
+    --comic-cyan: #27d5ed;
+    --comic-yellow: #ffe04b;
+    --comic-orange: #ff8738;
+    --comic-line: 3px solid var(--comic-ink);
+    --comic-shadow: 5px 5px 0 var(--comic-ink);
+  }
+  html, body { background: var(--comic-ink) !important; }
+  body.comic-theme {
+    color: var(--comic-white) !important;
+    font-family: 'Barlow Condensed', Inter, sans-serif !important;
+    background-image:
+      radial-gradient(ellipse at 12% 12%, rgba(255,52,120,.17), transparent 34%),
+      radial-gradient(ellipse at 88% 30%, rgba(39,213,237,.14), transparent 31%),
+      linear-gradient(135deg, #100f18 0%, #171421 55%, #11101a 100%) !important;
+    background-attachment: fixed;
+  }
+  body.comic-theme::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    opacity: .16;
+    background-image: radial-gradient(rgba(255,255,255,.65) .75px, transparent .85px);
+    background-size: 6px 6px;
+    mask-image: linear-gradient(135deg, #000 0%, transparent 78%);
+  }
+  body.comic-theme > * { position: relative; z-index: 1; }
+  body.comic-theme header {
+    background: rgba(16,15,24,.94) !important;
+    border-bottom: 3px solid var(--comic-ink) !important;
+    box-shadow: 0 5px 0 rgba(255,52,120,.9), 0 8px 0 rgba(39,213,237,.75) !important;
+    backdrop-filter: blur(12px);
+  }
+  body.comic-theme header h1,
+  body.comic-theme #viewHome h2,
+  body.comic-theme #phaseTitle,
+  body.comic-theme #viewGameOver h2 {
+    font-family: 'Bangers', 'Barlow Condensed', sans-serif !important;
+    font-weight: 400 !important;
+    letter-spacing: .045em !important;
+    text-transform: uppercase;
+    text-shadow: 2px 2px 0 var(--comic-ink), 4px 4px 0 rgba(255,52,120,.8);
+  }
+  body.comic-theme header h1 { font-size: 1.75rem !important; }
+  body.comic-theme .gradient-text {
+    background: linear-gradient(100deg, var(--comic-yellow) 0%, var(--comic-pink) 48%, var(--comic-cyan) 100%) !important;
+    -webkit-background-clip: text !important;
+    background-clip: text !important;
+    -webkit-text-fill-color: transparent !important;
+    filter: drop-shadow(2px 2px 0 rgba(0,0,0,.65));
+  }
+  body.comic-theme main { max-width: 920px !important; }
+  body.comic-theme main > section:not(.hidden) { animation: comic-enter .32s ease-out both; }
+  @keyframes comic-enter {
+    from { opacity: 0; transform: translateY(12px) skewY(1deg); }
+    to { opacity: 1; transform: translateY(0) skewY(0); }
+  }
+  body.comic-theme .glass-card {
+    position: relative;
+    overflow: hidden;
+    background: linear-gradient(145deg, rgba(41,36,56,.97), rgba(27,25,40,.97)) !important;
+    border: var(--comic-line) !important;
+    border-color: var(--comic-ink) !important;
+    border-radius: 17px !important;
+    box-shadow: var(--comic-shadow), 0 0 0 2px rgba(255,255,255,.08) inset !important;
+    backdrop-filter: none !important;
+  }
+  body.comic-theme .glass-card::after {
+    content: '';
+    position: absolute;
+    width: 116px;
+    height: 116px;
+    right: -48px;
+    top: -52px;
+    pointer-events: none;
+    opacity: .23;
+    transform: rotate(18deg);
+    background-image: radial-gradient(var(--comic-cyan) 1.1px, transparent 1.5px);
+    background-size: 6px 6px;
+  }
+  body.comic-theme #viewHome > div:first-child > div:first-child,
+  body.comic-theme #viewHome > div:first-child > .inline-block {
+    background: var(--comic-yellow) !important;
+    color: var(--comic-ink) !important;
+    border: 2px solid var(--comic-ink) !important;
+    border-radius: 4px !important;
+    box-shadow: 4px 4px 0 var(--comic-pink) !important;
+    transform: rotate(-2deg);
+  }
+  body.comic-theme #viewHome h2 {
+    font-size: clamp(2.8rem, 8vw, 5.3rem) !important;
+    line-height: .98 !important;
+    max-width: 850px;
+    margin-inline: auto;
+  }
+  body.comic-theme #viewHome p,
+  body.comic-theme #phaseSubtitle { color: var(--comic-muted) !important; }
+  body.comic-theme button:not(.scenario-card) {
+    border: 2px solid var(--comic-ink) !important;
+    border-radius: 8px !important;
+    box-shadow: 4px 4px 0 var(--comic-ink) !important;
+    font-family: 'Barlow Condensed', Inter, sans-serif !important;
+    font-weight: 800 !important;
+    letter-spacing: .035em;
+    text-transform: uppercase;
+    transition: transform .13s ease, box-shadow .13s ease, filter .13s ease !important;
+  }
+  body.comic-theme button:not(.scenario-card):not(:disabled):active {
+    transform: translate(3px,3px) !important;
+    box-shadow: 1px 1px 0 var(--comic-ink) !important;
+  }
+  body.comic-theme button.bg-brand-600,
+  body.comic-theme button[class*="from-brand-600"] {
+    color: var(--comic-ink) !important;
+    background: var(--comic-yellow) !important;
+    border-color: var(--comic-ink) !important;
+    box-shadow: 5px 5px 0 var(--comic-pink) !important;
+  }
+  body.comic-theme button.bg-brand-600:hover,
+  body.comic-theme button[class*="from-brand-600"]:hover { filter: brightness(1.08) saturate(1.12); }
+  body.comic-theme button.bg-slate-800,
+  body.comic-theme button[class*="bg-slate-800"] {
+    background: var(--comic-cyan) !important;
+    color: var(--comic-ink) !important;
+    border-color: var(--comic-ink) !important;
+  }
+  body.comic-theme button:disabled { filter: grayscale(.35); opacity: .58; }
+  body.comic-theme button.text-slate-500.underline,
+  body.comic-theme button.text-slate-400.underline,
+  body.comic-theme #viewLobbyClient button,
+  body.comic-theme #viewGameplay > div:last-child button {
+    background: transparent !important;
+    color: var(--comic-muted) !important;
+    border: 0 !important;
+    box-shadow: none !important;
+    text-decoration: underline;
+  }
+  body.comic-theme input,
+  body.comic-theme select {
+    background: #12111c !important;
+    color: var(--comic-white) !important;
+    border: 2px solid #09090f !important;
+    border-radius: 7px !important;
+    box-shadow: 3px 3px 0 rgba(39,213,237,.55) !important;
+    font-family: 'Barlow Condensed', Inter, sans-serif !important;
+    font-weight: 700;
+  }
+  body.comic-theme input:focus,
+  body.comic-theme select:focus { outline: 2px solid var(--comic-pink) !important; outline-offset: 2px; }
+  body.comic-theme label { color: var(--comic-cyan) !important; letter-spacing: .08em; }
+  body.comic-theme #lobbyRoomCode,
+  body.comic-theme #clientLobbyCode {
+    color: var(--comic-yellow) !important;
+    font-family: 'Bangers', sans-serif !important;
+    letter-spacing: .12em;
+    text-shadow: 3px 3px 0 var(--comic-pink);
+  }
+  body.comic-theme #roundBadge,
+  body.comic-theme #suddenDeathBadge,
+  body.comic-theme #playerCountBadge,
+  body.comic-theme #votedCountBadge {
+    border: 2px solid var(--comic-ink) !important;
+    box-shadow: 2px 2px 0 var(--comic-pink);
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 900;
+  }
+  body.comic-theme #roundBadge { background: var(--comic-cyan) !important; color: var(--comic-ink) !important; }
+  body.comic-theme #gameTimer {
+    color: var(--comic-yellow) !important;
+    font-family: 'Bangers', sans-serif !important;
+    font-size: 2.35rem !important;
+    text-shadow: 2px 2px 0 var(--comic-pink);
+  }
+  body.comic-theme #phaseTitle { font-size: clamp(2rem, 5vw, 3.2rem) !important; }
+  body.comic-theme .scenario-card {
+    position: relative;
+    overflow: hidden;
+    min-height: 190px;
+    background: linear-gradient(145deg, #fff8e8 0%, #f5e9d8 100%) !important;
+    color: var(--comic-ink) !important;
+    border: 3px solid var(--comic-ink) !important;
+    border-radius: 5px !important;
+    box-shadow: 6px 6px 0 var(--comic-ink), 9px 9px 0 var(--comic-cyan) !important;
+    transform: rotate(-.45deg);
+    clip-path: polygon(0 0, 100% 0, 100% 94%, 96% 100%, 0 100%);
+  }
+  body.comic-theme .scenario-card:nth-child(even) { transform: rotate(.55deg); }
+  body.comic-theme .scenario-card::before {
+    content: '';
+    position: absolute;
+    inset: 0 0 auto auto;
+    width: 105px;
+    height: 105px;
+    opacity: .23;
+    pointer-events: none;
+    background-image: radial-gradient(#16131e 1px, transparent 1.5px);
+    background-size: 6px 6px;
+    mask-image: linear-gradient(135deg, #000, transparent 78%);
+  }
+  body.comic-theme .scenario-card > * { position: relative; z-index: 1; }
+  body.comic-theme .scenario-card h3 {
+    color: #15121c !important;
+    font-family: 'Barlow Condensed', sans-serif !important;
+    font-size: 1.55rem !important;
+    font-weight: 900 !important;
+    line-height: 1.02 !important;
+    text-transform: uppercase;
+    letter-spacing: .015em;
+  }
+  body.comic-theme .scenario-card p { color: #514a5a !important; font-weight: 600; }
+  body.comic-theme .scenario-card .text-brand-400,
+  body.comic-theme .scenario-card .text-brand-400 * { color: #d91d60 !important; }
+  body.comic-theme .scenario-card .text-slate-400,
+  body.comic-theme .scenario-card .text-slate-500 { color: #62596a !important; }
+  body.comic-theme .scenario-card .safe-bar { background: #d5c9bc !important; border: 1px solid #17131d; }
+  body.comic-theme .scenario-card .safe-fill { background: repeating-linear-gradient(135deg, var(--comic-pink) 0 8px, var(--comic-yellow) 8px 16px) !important; }
+  body.comic-theme .scenario-card:hover:not(:disabled) {
+    transform: translate(-2px,-3px) rotate(0deg) !important;
+    box-shadow: 8px 9px 0 var(--comic-ink), 11px 12px 0 var(--comic-pink) !important;
+    filter: saturate(1.08);
+  }
+  body.comic-theme .scenario-card:disabled { opacity: 1 !important; }
+  body.comic-theme .scenario-card:disabled:not(:has(.text-brand-400)) { filter: saturate(.84); }
+  body.comic-theme #leaderboardList > div,
+  body.comic-theme #finalLeaderboard > div,
+  body.comic-theme #lobbyPlayersList > div,
+  body.comic-theme #clientLobbyPlayers > div {
+    background: rgba(12,11,19,.72) !important;
+    border: 2px solid rgba(255,255,255,.12) !important;
+    border-left: 5px solid var(--comic-cyan) !important;
+    border-radius: 5px !important;
+    padding: .65rem !important;
+  }
+  body.comic-theme #leaderboardList > div:nth-child(odd),
+  body.comic-theme #lobbyPlayersList > div:nth-child(odd) { border-left-color: var(--comic-pink) !important; }
+  body.comic-theme #leaderboardList .text-amber-400,
+  body.comic-theme #finalLeaderboard .text-amber-400 { color: var(--comic-yellow) !important; }
+  body.comic-theme #hostControlsArea > p,
+  body.comic-theme #playerTurnBanner,
+  body.comic-theme #joinStatusArea {
+    border: 2px solid var(--comic-ink) !important;
+    box-shadow: 3px 3px 0 var(--comic-cyan);
+    border-radius: 5px !important;
+  }
+  body.comic-theme footer { color: #8c849a !important; }
+  body.comic-theme #toast {
+    background: var(--comic-yellow) !important;
+    color: var(--comic-ink) !important;
+    border: 3px solid var(--comic-ink);
+    border-radius: 5px !important;
+    box-shadow: 5px 5px 0 var(--comic-pink) !important;
+    font-family: 'Barlow Condensed', sans-serif !important;
+    font-weight: 800 !important;
+  }
+  body.comic-theme ::-webkit-scrollbar-track { background: #14121e; }
+  body.comic-theme ::-webkit-scrollbar-thumb { background: var(--comic-pink); border-radius: 0; }
+  @media (max-width: 640px) {
+    body.comic-theme main { padding: 1rem !important; }
+    body.comic-theme .scenario-card { min-height: 160px; padding: 1rem !important; }
+    body.comic-theme #viewHome h2 { font-size: clamp(2.5rem, 12vw, 3.8rem) !important; }
+    body.comic-theme header h1 { font-size: 1.45rem !important; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    body.comic-theme main > section:not(.hidden) { animation: none !important; }
+  }
+
   </style>
 </head>
-<body class="min-h-full font-sans antialiased bg-slate-900 text-slate-100 flex flex-col overflow-x-hidden selection:bg-brand-500 selection:text-white">
+<body class="comic-theme min-h-full font-sans antialiased bg-slate-900 text-slate-100 flex flex-col overflow-x-hidden selection:bg-brand-500 selection:text-white">
   <header class="w-full bg-slate-950/80 border-b border-slate-800 px-4 py-3 sticky top-0 z-50 backdrop-blur-md">
     <div class="max-w-4xl mx-auto flex items-center justify-between gap-3">
       <div class="flex items-center space-x-3 cursor-pointer" onclick="app.goHome()">
-        <span class="text-2xl">⚠️</span><div><h1 class="font-extrabold text-lg leading-none tracking-tight gradient-text">FATTORE SOPRAVVIVENZA</h1><span class="text-[10px] text-slate-400 font-semibold tracking-widest uppercase">EDIZIONE V3.1 • PARTY GAME</span></div>
+        <span class="text-2xl">⚠️</span><div><h1 class="font-extrabold text-lg leading-none tracking-tight gradient-text">FATTORE SOPRAVVIVENZA</h1><span class="text-[10px] text-slate-400 font-semibold tracking-widest uppercase">EDIZIONE V3.2 • COMIC BOOK PARTY GAME</span></div>
       </div>
       <div class="flex items-center space-x-3">
         <div id="statusBadge" class="hidden sm:flex items-center space-x-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-slate-800 border border-slate-700"><span id="statusDot" class="w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse"></span><span id="statusText" class="text-slate-300">Offline</span></div>
@@ -119,7 +400,7 @@
     <section id="viewGameOver" class="hidden max-w-xl mx-auto w-full glass-card p-8 rounded-3xl text-center space-y-5"><div class="text-6xl">🏆</div><h2 class="text-3xl font-black gradient-text">PARTITA CONCLUSA!</h2><p id="winnerText" class="text-slate-300">Abbiamo un vincitore!</p><div id="finalLeaderboard" class="space-y-2 text-left"></div><button onclick="app.leaveGame()" class="touch-target w-full py-4 rounded-2xl bg-brand-600 hover:bg-brand-500 text-white font-bold">Torna alla Home</button></section>
   </main>
 
-  <footer class="text-center text-[10px] text-slate-600 px-4 pb-4">Fattore Sopravvivenza • Party Game sperimentale • Non usare i punteggi come indicazioni di sicurezza reali</footer>
+  <footer class="text-center text-[10px] text-slate-600 px-4 pb-4">Fattore Sopravvivenza • Comic Book Edition • Party Game sperimentale • Non usare i punteggi come indicazioni di sicurezza reali</footer>
   <div id="toast" class="fixed bottom-5 left-1/2 -translate-x-1/2 z-[100] hidden max-w-[90vw] px-4 py-3 rounded-xl bg-slate-100 text-slate-900 shadow-2xl text-sm font-semibold" role="status" aria-live="polite"></div>
 
 <script>
