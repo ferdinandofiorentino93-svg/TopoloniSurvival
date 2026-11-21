@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <meta name="theme-color" content="#0f172a">
-  <title>Fattore Sopravvivenza v3.0 - Party Game Multiplayer</title>
+  <title>Fattore Sopravvivenza v3.1 - Party Game Multiplayer</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://unpkg.com/mqtt@5.10.1/dist/mqtt.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
@@ -29,7 +29,7 @@
   <header class="w-full bg-slate-950/80 border-b border-slate-800 px-4 py-3 sticky top-0 z-50 backdrop-blur-md">
     <div class="max-w-4xl mx-auto flex items-center justify-between gap-3">
       <div class="flex items-center space-x-3 cursor-pointer" onclick="app.goHome()">
-        <span class="text-2xl">⚠️</span><div><h1 class="font-extrabold text-lg leading-none tracking-tight gradient-text">FATTORE SOPRAVVIVENZA</h1><span class="text-[10px] text-slate-400 font-semibold tracking-widest uppercase">EDIZIONE V3.0 • PARTY GAME</span></div>
+        <span class="text-2xl">⚠️</span><div><h1 class="font-extrabold text-lg leading-none tracking-tight gradient-text">FATTORE SOPRAVVIVENZA</h1><span class="text-[10px] text-slate-400 font-semibold tracking-widest uppercase">EDIZIONE V3.1 • PARTY GAME</span></div>
       </div>
       <div class="flex items-center space-x-3">
         <div id="statusBadge" class="hidden sm:flex items-center space-x-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-slate-800 border border-slate-700"><span id="statusDot" class="w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse"></span><span id="statusText" class="text-slate-300">Offline</span></div>
@@ -110,7 +110,7 @@
       <div class="text-center space-y-1"><h2 id="phaseTitle" class="text-2xl sm:text-3xl font-black text-white tracking-tight">Scegli la situazione con la MAGGIORE sopravvivenza!</h2><p id="phaseSubtitle" class="text-slate-400 text-xs sm:text-sm">Tocca la scheda dello scenario secondo te più sicuro prima che scadano i secondi.</p></div>
       <div id="playerTurnBanner" class="hidden text-center rounded-xl border border-amber-500/30 bg-amber-500/10 text-amber-200 p-3 text-sm font-bold"></div>
       <div id="scenariosContainer" class="grid grid-cols-1 sm:grid-cols-2 gap-4"></div>
-      <div id="hostControlsArea" class="hidden pt-2 flex justify-center"><button onclick="app.hostForceReveal()" class="touch-target px-6 py-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-sm uppercase tracking-wider shadow-lg flex items-center space-x-2"><i class="fas fa-eye"></i><span>Rivela Risultati Ora</span></button></div>
+      <div id="hostControlsArea" class="hidden pt-2 text-center"><p class="inline-block rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-xs font-semibold text-amber-200">Il round si chiude automaticamente quando tutti i giocatori hanno votato oppure quando scade il timer.</p></div>
       <div id="hostNextArea" class="hidden pt-2 flex justify-center"><button onclick="app.hostNextRound()" class="touch-target px-8 py-4 rounded-2xl bg-brand-600 hover:bg-brand-500 text-white font-black text-lg shadow-xl flex items-center space-x-2"><span>PROSSIMO ROUND</span><i class="fas fa-arrow-right"></i></button></div>
       <div class="glass-card p-5 rounded-3xl space-y-3"><div class="flex items-center justify-between border-b border-slate-700/60 pb-2 gap-3"><h3 class="text-xs font-extrabold uppercase tracking-widest text-slate-400 flex items-center space-x-2"><i class="fas fa-trophy text-amber-400"></i><span>Classifica Live (Obiettivo: 5 Vittorie)</span></h3><span id="votedCountBadge" class="text-xs font-bold text-slate-400 whitespace-nowrap">Voti: 0 / 0</span></div><div id="leaderboardList" class="space-y-2"></div></div>
       <div class="text-center"><button onclick="app.leaveGame()" class="text-xs text-slate-500 hover:text-slate-300 underline">Esci dalla partita</button></div>
@@ -147,7 +147,55 @@ const SCENARIOS = [
   {title:'Campeggio durante un temporale',description:'Hai una tenda leggera e sei vicino a un grande albero.',emoji:'⛈️',survival:43},
   {title:'Incontro con un dinosauro',description:'Un T-Rex ti ha visto e sei in un prato senza ripari.',emoji:'🦖',survival:8},
   {title:'Villaggio isolato senza elettricità',description:'Hai acqua potabile, una comunità collaborativa e scorte.',emoji:'🏘️',survival:88},
-  {title:'Nave alla deriva',description:'Hai una zattera, acqua dolce per due giorni e un segnalatore.',emoji:'🚢',survival:57}
+  {title:'Nave alla deriva',description:'Hai una zattera, acqua dolce per due giorni e un segnalatore.',emoji:'🚢',survival:57},
+  {title:'Valanga sopra un rifugio',description:'Sei dentro una struttura in legno con viveri, ma l’uscita è coperta.',emoji:'🏚️',survival:61},
+  {title:'Incendio boschivo in avvicinamento',description:'Sei in una radura ampia e conosci una strada che porta a valle.',emoji:'🔥',survival:46},
+  {title:'Terremoto in un appartamento',description:'La scossa è terminata, ma le scale sono danneggiate.',emoji:'🏢',survival:55},
+  {title:'Bloccato in una funivia',description:'La cabina è ferma sopra una valle e i soccorsi sono stati allertati.',emoji:'🚠',survival:69},
+  {title:'Lago ghiacciato che si incrina',description:'Sei vicino alla riva e senti il ghiaccio rompersi sotto i piedi.',emoji:'🧊',survival:25},
+  {title:'Notte nella savana',description:'Sei in un veicolo fermo e senti animali muoversi intorno.',emoji:'🦁',survival:51},
+  {title:'Grotta con acqua in aumento',description:'Hai una torcia e vedi una galleria che sale verso l’interno.',emoji:'🕳️',survival:39},
+  {title:'Nave da crociera senza energia',description:'Sei sul ponte esterno e il mare è calmo, ma le comunicazioni non funzionano.',emoji:'🛳️',survival:73},
+  {title:'Invasione aliena in un centro commerciale',description:'Le porte automatiche sono bloccate e senti rumori nei corridoi.',emoji:'👽',survival:19},
+  {title:'Guasto in una base lunare',description:'La pressione è stabile in un modulo, ma il sistema energetico è in avaria.',emoji:'🌕',survival:62},
+  {title:'Stazione di ricerca sottomarina',description:'Una perdita è stata isolata e hai ossigeno per diverse ore.',emoji:'🐠',survival:58},
+  {title:'Villaggio infestato da fantasmi',description:'Le apparizioni sembrano seguire chi resta all’aperto dopo il tramonto.',emoji:'👻',survival:41},
+  {title:'Ribellione dei robot domestici',description:'Sei in una casa intelligente e tutti i dispositivi hanno smesso di obbedire.',emoji:'🤖',survival:47},
+  {title:'Pioggia di cenere vulcanica',description:'Sei in un edificio con finestre chiuse e una riserva d’acqua.',emoji:'🌫️',survival:66},
+  {title:'Naufragio tra i ghiacci',description:'Sei su un piccolo tratto di ghiaccio con una coperta termica.',emoji:'🧭',survival:33},
+  {title:'Discesa di un fiume in piena',description:'Sei su una sponda rialzata con un sentiero verso un ponte sicuro.',emoji:'🛶',survival:44},
+  {title:'Frana su una strada di montagna',description:'La tua auto è bloccata tra due tratti di strada ancora percorribili a piedi.',emoji:'⛰️',survival:59},
+  {title:'Bloccato in aeroporto durante una bufera',description:'L’edificio è riscaldato e ci sono scorte, ma i voli sono sospesi.',emoji:'✈️',survival:82},
+  {title:'Evacuazione di un ospedale',description:'Sei in un reparto al piano terra e il personale sta organizzando l’uscita.',emoji:'🏥',survival:76},
+  {title:'Fuga da una città invasa dalla nebbia',description:'La visibilità è bassissima, ma hai una mappa cartacea e una bicicletta.',emoji:'🌁',survival:52},
+  {title:'Tornado vicino a una fattoria',description:'Hai raggiunto una cantina interrata con una porta robusta.',emoji:'🌪️',survival:86},
+  {title:'Oasi misteriosa nel deserto',description:'Hai trovato acqua e ombra, ma non sai quanto sia distante il prossimo centro abitato.',emoji:'🌵',survival:63},
+  {title:'Palude al calare del sole',description:'Il terreno è instabile e hai perso il sentiero, ma hai una bussola.',emoji:'🐊',survival:37},
+  {title:'Perso in un canyon',description:'Hai acqua per un giorno e una parete con un percorso in salita.',emoji:'🏜️',survival:48},
+  {title:'Foresta durante una tormenta di neve',description:'Hai abiti pesanti e trovi una baita abbandonata poco distante.',emoji:'🌲',survival:56},
+  {title:'Deserto durante la notte',description:'La temperatura è scesa, hai una coperta e puoi orientarti con le stelle.',emoji:'🌌',survival:68},
+  {title:'Faro isolato durante un uragano',description:'La struttura è solida e hai viveri, ma il mare ha sommerso il molo.',emoji:'🗼',survival:81},
+  {title:'Deragliamento di un treno',description:'Sei in una carrozza non danneggiata e i passeggeri stanno collaborando.',emoji:'🚆',survival:71},
+  {title:'Incendio su un’isola remota',description:'Il vento spinge il fumo verso la costa e hai una barca a remi.',emoji:'🏝️',survival:42},
+  {title:'Rifugio sotterraneo dopo un’esplosione',description:'Le porte sono integre, ma non sai quanto durerà l’interruzione dei servizi.',emoji:'🚪',survival:74},
+  {title:'Ciclone su una località costiera',description:'Sei in un edificio sopraelevato progettato per resistere alle tempeste.',emoji:'🌀',survival:79},
+  {title:'Bufera di neve in una grande città',description:'I trasporti sono fermi, ma puoi raggiungere a piedi un centro di accoglienza.',emoji:'🌨️',survival:77},
+  {title:'Incidente in una zona industriale',description:'È stato segnalato un rilascio di sostanze e devi raggiungere un punto di raccolta.',emoji:'🏭',survival:36},
+  {title:'Blackout nella campagna isolata',description:'Hai una stufa, acqua conservata e vicini a poca distanza.',emoji:'🕯️',survival:83},
+  {title:'Tempesta solare su una stazione orbitale',description:'I sistemi principali sono schermati, ma le comunicazioni sono saltate.',emoji:'☀️',survival:65},
+  {title:'Pianeta alieno con atmosfera respirabile',description:'La navicella è inutilizzabile, ma hai una serra e un modulo abitativo.',emoji:'🪐',survival:70},
+  {title:'Isola con dinosauri',description:'Sei in un laboratorio recintato con cibo e un generatore funzionante.',emoji:'🦕',survival:45},
+  {title:'Caverna sottomarina',description:'Hai trovato una sacca d’aria e una possibile uscita verso la superficie.',emoji:'🤿',survival:29},
+  {title:'Alluvione mentre attraversi un ponte',description:'L’acqua sta salendo, ma una passerella laterale conduce a terreno alto.',emoji:'🌉',survival:50},
+  {title:'Temporale in un campo aperto',description:'Non ci sono edifici vicini, ma vedi un avvallamento lontano dagli alberi.',emoji:'⚡',survival:32},
+  {title:'Tsunami in una città costiera',description:'Hai raggiunto una collina distante dalla costa e una strada verso l’entroterra.',emoji:'🌊',survival:87},
+  {title:'Crepaccio su un ghiacciaio',description:'Sei assicurato con una corda e il tuo compagno è rimasto in superficie.',emoji:'🧗',survival:54},
+  {title:'Cenere vulcanica vicino a un aeroporto',description:'Sei in un terminal chiuso e le autorità hanno interrotto i voli.',emoji:'🛫',survival:75},
+  {title:'Sopravvivenza in una foresta senza telefono',description:'Hai un coltellino, una borraccia e sai orientarti con una mappa.',emoji:'🪓',survival:60},
+  {title:'Città evacuata dopo un allarme',description:'Sei rimasto in una biblioteca solida con acqua e uscite secondarie.',emoji:'📚',survival:80},
+  {title:'Meteorite caduto vicino a un osservatorio',description:'L’edificio è integro, ma la strada d’accesso è stata interrotta.',emoji:'☄️',survival:57},
+  {title:'Traghetto bloccato nella nebbia',description:'Sei a bordo, il mare è tranquillo e l’equipaggio mantiene i contatti radio.',emoji:'⛴️',survival:85},
+  {title:'Base nel mezzo di una tundra',description:'Hai una tenda termica, viveri e un trasmettitore di emergenza.',emoji:'🧊',survival:72}
 ];
 
 const $ = id => document.getElementById(id);
@@ -235,7 +283,7 @@ const app = {
     try {
       this.client=await this.connectBroker(this.hostBroker,'fs_host');
       await this.subscribe(`${this.baseTopic}/in/+`);
-      this.state={version:1,room:this.room,hostOnline:true,hostName:name,phase:'lobby',round:0,goal:5,optionsCount:Number($('optionsCountSelect').value),timerSeconds:Number($('timerSelect').value),deadline:null,players:this.hostRole?[{id:this.hostPlayerId,name,avatar:'👑',score:0,isHost:true,lastSeen:Date.now()}]:[],scenarios:[],bestScenarioIds:[],votes:{},votedIds:[],winnerIds:[],updatedAt:Date.now(),suddenDeath:false};
+      this.state={version:1,room:this.room,hostOnline:true,hostName:name,phase:'lobby',round:0,goal:5,optionsCount:Number($('optionsCountSelect').value),timerSeconds:Number($('timerSelect').value),deadline:null,players:this.hostRole?[{id:this.hostPlayerId,name,avatar:'👑',score:0,isHost:true,lastSeen:Date.now()}]:[],scenarios:[],usedScenarioIds:[],bestScenarioIds:[],votes:{},votedIds:[],winnerIds:[],updatedAt:Date.now(),suddenDeath:false};
       this.client.on('message',(topic,payload)=>this.onHostMessage(topic,payload));
       this.broadcastState();
       this.startHostHeartbeat();
@@ -268,7 +316,16 @@ const app = {
     this.heartbeatHandle=setInterval(()=>{
       if(!this.isHost || !this.state) return;
       const now=Date.now();
-      if (this.state.phase === 'lobby') this.state.players=this.state.players.filter(p=>p.isHost || now-(p.lastSeen||0)<40000);
+      if (this.state.phase === 'lobby' || this.state.phase === 'voting') {
+        const previousCount=this.state.players.length;
+        this.state.players=this.state.players.filter(p=>p.isHost || now-(p.lastSeen||0)<40000);
+        if(this.state.phase==='voting' && this.state.players.length!==previousCount) {
+          const activeIds=new Set(this.state.players.map(p=>p.id));
+          Object.keys(this.state.votes||{}).forEach(id=>{if(!activeIds.has(id)) delete this.state.votes[id];});
+          this.state.votedIds=Object.keys(this.state.votes);
+          if(this.allPlayersHaveVoted()) { this.broadcastState(); this.revealResults(); return; }
+        }
+      }
       this.broadcastState();
     },10000);
   },
@@ -288,16 +345,23 @@ const app = {
       const player=this.state.players.find(p=>p.id===id); if(player) player.lastSeen=Date.now(); return;
     }
     if(msg.type==='leave') {
-      this.state.players=this.state.players.filter(p=>p.id!==id); delete this.state.votes[id];
-      this.broadcastState(); return;
+      this.state.players=this.state.players.filter(p=>p.id!==id);
+      delete this.state.votes[id];
+      this.state.votedIds=this.state.players.filter(p=>Object.prototype.hasOwnProperty.call(this.state.votes,p.id)).map(p=>p.id);
+      this.broadcastState();
+      if(this.state.phase==='voting' && this.allPlayersHaveVoted()) this.revealResults();
+      return;
     }
     if(msg.type==='vote') {
       const player=this.state.players.find(p=>p.id===id);
       if(!player || this.state.phase!=='voting') return;
       if(!this.state.scenarios.some(s=>s.id===msg.scenarioId)) return;
-      this.state.votes[id]=msg.scenarioId; this.state.votedIds=Object.keys(this.state.votes);
+      if(Object.prototype.hasOwnProperty.call(this.state.votes||{},id)) return;
+      this.state.votes[id]=msg.scenarioId;
+      player.lastSeen=Date.now();
+      this.state.votedIds=this.state.players.filter(p=>Object.prototype.hasOwnProperty.call(this.state.votes,p.id)).map(p=>p.id);
       this.broadcastState();
-      if(this.state.votedIds.length>=this.state.players.length) this.revealResults();
+      if(this.allPlayersHaveVoted()) this.revealResults();
     }
   },
   sendAck(playerId,accepted,message) {
@@ -393,15 +457,40 @@ const app = {
   },
   hostStartGame() {
     if(!this.isHost || !this.state || this.state.players.length<2) return;
-    this.state.round=1; this.state.phase='voting'; this.state.votes={}; this.state.votedIds=[]; this.state.winnerIds=[]; this.state.suddenDeath=false;
-    this.prepareScenarios(); this.startRoundTimer(); this.broadcastState(); this.showView('viewGameplay'); this.toast('La partita è iniziata!');
+    this.state.round=1; this.state.phase='voting'; this.state.votes={}; this.state.votedIds=[]; this.state.usedScenarioIds=[]; this.state.winnerIds=[]; this.state.suddenDeath=false;
+    if(!this.prepareScenarios()) { this.finishByScenarioExhaustion(); return; } this.startRoundTimer(); this.broadcastState(); this.showView('viewGameplay'); this.toast('La partita è iniziata!');
+  },
+  allPlayersHaveVoted() {
+    if(!this.state || !Array.isArray(this.state.players) || !this.state.players.length) return false;
+    const votes=this.state.votes||{};
+    // Check every current participant by ID, not merely the number of votes.
+    // This prevents the host's vote (or a duplicate message) from ending the round early.
+    return this.state.players.every(player => Object.prototype.hasOwnProperty.call(votes,player.id));
   },
   prepareScenarios() {
-    const pool=[...SCENARIOS];
+    const used=new Set(this.state.usedScenarioIds||[]);
+    const pool=SCENARIOS.map((scenario,index)=>({...scenario,id:`scenario-${String(index+1).padStart(3,'0')}`}))
+      .filter(scenario=>!used.has(scenario.id));
     for(let i=pool.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[pool[i],pool[j]]=[pool[j],pool[i]];}
-    this.state.scenarios=pool.slice(0,this.state.optionsCount).map((s,i)=>({...s,id:`r${this.state.round}s${i}`}));
+    const selected=pool.slice(0,Math.max(1,Number(this.state.optionsCount)||4));
+    if(!selected.length) return false;
+    this.state.scenarios=selected;
+    this.state.usedScenarioIds=[...used,...selected.map(scenario=>scenario.id)];
     this.state.bestScenarioIds=[]; this.state.votes={}; this.state.votedIds=[];
     this.state.deadline=this.state.timerSeconds>0 ? Date.now()+this.state.timerSeconds*1000 : null;
+    return true;
+  },
+  finishByScenarioExhaustion() {
+    if(!this.state) return;
+    const highest=Math.max(0,...(this.state.players||[]).map(player=>player.score||0));
+    this.state.winnerIds=(this.state.players||[]).filter(player=>(player.score||0)===highest).map(player=>player.id);
+    this.state.endReason='scenarios_exhausted';
+    if(this.localMode) {
+      this.state.phase='finished';
+      this.showView('viewGameOver');
+      this.renderGameOver();
+    } else this.finishGame();
+    this.toast('Sono terminati gli scenari disponibili. La partita si conclude con la classifica attuale.');
   },
   startRoundTimer() {
     clearInterval(this.timerHandle);
@@ -421,8 +510,11 @@ const app = {
     if(this.localMode) { this.submitLocalVote(scenarioId); return; }
     if(this.isHost) {
       if(!this.hostRole || !this.hostPlayerId) return;
-      this.state.votes[this.hostPlayerId]=scenarioId; this.state.votedIds=Object.keys(this.state.votes); this.broadcastState();
-      if(this.state.votedIds.length>=this.state.players.length) this.revealResults();
+      if(Object.prototype.hasOwnProperty.call(this.state.votes||{},this.hostPlayerId)) return;
+      this.state.votes[this.hostPlayerId]=scenarioId;
+      this.state.votedIds=this.state.players.filter(p=>Object.prototype.hasOwnProperty.call(this.state.votes,p.id)).map(p=>p.id);
+      this.broadcastState();
+      if(this.allPlayersHaveVoted()) this.revealResults();
     } else {
       if(!this.hasJoinAck || !this.myPlayerId) return;
       this.pendingVoteForRound=this.state.round;
@@ -441,10 +533,9 @@ const app = {
     this.broadcastState(); this.showView('viewGameplay');
     if(this.state.winnerIds.length) this.finishGame(); else this.toast('Risultati rivelati!');
   },
-  hostForceReveal() { this.revealResults(); },
   hostNextRound() {
     if(!this.isHost || !this.state || this.state.phase!=='reveal' || this.state.winnerIds.length) return;
-    this.state.round+=1; this.state.phase='voting'; this.state.suddenDeath=false; this.pendingVoteForRound=null; this.prepareScenarios(); this.startRoundTimer(); this.broadcastState();
+    this.state.round+=1; this.state.phase='voting'; this.state.suddenDeath=false; this.pendingVoteForRound=null; if(!this.prepareScenarios()) { this.finishByScenarioExhaustion(); return; } this.startRoundTimer(); this.broadcastState();
   },
   finishGame() {
     if(!this.isHost || !this.state) return;
@@ -455,8 +546,15 @@ const app = {
     const s=this.state; $('roundBadge').textContent=`ROUND ${s.round||1}`; $('suddenDeathBadge').classList.toggle('hidden',!s.suddenDeath);
     const isVoting=s.phase==='voting'; const isReveal=s.phase==='reveal';
     $('phaseTitle').textContent=isVoting?'Scegli la situazione con la MAGGIORE sopravvivenza!': 'Ecco i risultati del round';
-    $('phaseSubtitle').textContent=isVoting?'Tocca lo scenario che ritieni più sicuro. Un solo voto per giocatore.': 'La scheda con la percentuale più alta è la risposta corretta.';
+    $('phaseSubtitle').textContent=isVoting
+      ? (s.timerSeconds>0 ? 'Vota una sola volta. Il round termina quando tutti hanno votato oppure quando scade il timer.' : 'Vota una sola volta. Senza timer, il round termina quando tutti i giocatori hanno votato.')
+      : 'La scheda con la percentuale più alta è la risposta corretta.';
     $('hostControlsArea').classList.toggle('hidden',!(this.isHost && isVoting));
+    if(this.isHost && isVoting) {
+      const received=(s.votedIds||[]).length;
+      const expected=(s.players||[]).length;
+      $('hostControlsArea').querySelector('p').textContent=`Chiusura automatica: ${received}/${expected} voti ricevuti${s.timerSeconds>0?' oppure allo scadere del timer.':'.'}`;
+    }
     $('hostNextArea').classList.toggle('hidden',!(this.isHost && isReveal && !(s.winnerIds||[]).length));
     $('hostNextArea').querySelector('button').disabled=!this.isHost;
     const voted = s.votedIds || []; const total=s.players?s.players.length:0;
@@ -499,7 +597,8 @@ const app = {
   },
   renderGameOver() {
     const winners=(this.state?.players||[]).filter(p=>(this.state.winnerIds||[]).includes(p.id));
-    $('winnerText').textContent=winners.length>1?'Pareggio! Vincitori: '+winners.map(p=>p.name).join(', '):`Il vincitore è ${winners[0]?.name||'—'}!`;
+    const winnerLabel=winners.length>1?'Pareggio! Vincitori: '+winners.map(p=>p.name).join(', '):`Il vincitore è ${winners[0]?.name||'—'}!`;
+    $('winnerText').textContent=this.state?.endReason==='scenarios_exhausted'?'Scenari esauriti! '+winnerLabel:winnerLabel;
     $('finalLeaderboard').innerHTML='';
     [...(this.state?.players||[])].sort((a,b)=>(b.score||0)-(a.score||0)).forEach((p,i)=>{const row=document.createElement('div');row.className='flex items-center gap-3 p-3 rounded-xl bg-slate-900/70';row.innerHTML=`<span class="text-slate-500 font-bold">${i+1}.</span><span class="text-xl">${p.avatar}</span><span class="flex-1 font-semibold"></span><strong class="text-amber-400">${p.score||0} vittorie</strong>`;row.querySelector('.flex-1').textContent=p.name; $('finalLeaderboard').appendChild(row);});
   },
@@ -509,8 +608,8 @@ const app = {
     const count=Math.max(2,Math.min(10,parseInt(raw,10)||2)); const players=[];
     for(let i=0;i<count;i++){const name=window.prompt(`Nome giocatore ${i+1}:`,`Giocatore ${i+1}`);players.push({id:`local${i}`,name:this.cleanName(name)||`Giocatore ${i+1}`,avatar:AVATARS[i%AVATARS.length],score:0,isHost:false});}
     this.cleanup(true); this.resetSession(); this.localMode=true; this.isHost=true; this.localPlayers=players; this.localTurn=0;
-    this.state={version:1,room:'OFFLINE',phase:'voting',round:1,goal:5,optionsCount:Number($('optionsCountSelect')?.value||4),timerSeconds:0,deadline:null,players:this.localPlayers,scenarios:[],bestScenarioIds:[],votes:{},votedIds:[],winnerIds:[],suddenDeath:false};
-    this.prepareScenarios(); this.showView('viewGameplay'); this.renderGameplay(); this.updateStatus('Offline','bg-slate-500',true);
+    this.state={version:1,room:'OFFLINE',phase:'voting',round:1,goal:5,optionsCount:Number($('optionsCountSelect')?.value||4),timerSeconds:0,deadline:null,players:this.localPlayers,scenarios:[],usedScenarioIds:[],bestScenarioIds:[],votes:{},votedIds:[],winnerIds:[],suddenDeath:false};
+    if(!this.prepareScenarios()) { this.finishByScenarioExhaustion(); return; } this.showView('viewGameplay'); this.renderGameplay(); this.updateStatus('Offline','bg-slate-500',true);
   },
   submitLocalVote(scenarioId) {
     const player=this.localPlayers[this.localTurn]; if(!player || this.state.votes[player.id]) return;
@@ -519,6 +618,7 @@ const app = {
     else this.revealLocalResults();
   },
   revealLocalResults() {
+    if(!this.state.scenarios.length) { this.finishByScenarioExhaustion(); return; }
     this.state.phase='reveal';const max=Math.max(...this.state.scenarios.map(s=>s.survival));this.state.bestScenarioIds=this.state.scenarios.filter(s=>s.survival===max).map(s=>s.id);
     this.state.players.forEach(p=>{if(this.state.bestScenarioIds.includes(this.state.votes[p.id]))p.score++;});
     const top=Math.max(...this.state.players.map(p=>p.score));this.state.winnerIds=this.state.players.filter(p=>p.score>=5 && p.score===top).map(p=>p.id);
@@ -526,7 +626,7 @@ const app = {
   },
   localNextRound() {
     if(this.state.phase!=='reveal' || this.state.winnerIds.length)return;
-    this.state.round++;this.state.phase='voting';this.pendingVoteForRound=null;this.state.votes={};this.state.votedIds=[];this.localTurn=0;this.prepareScenarios();this.renderGameplay();
+    this.state.round++;this.state.phase='voting';this.pendingVoteForRound=null;this.state.votes={};this.state.votedIds=[];this.localTurn=0;if(!this.prepareScenarios()){this.finishByScenarioExhaustion();return;}this.renderGameplay();
   },
   leaveGame() { this.cleanup(true); this.resetSession(); this.showView('viewHome'); this.updateStatus('Offline','bg-slate-500',false); },
   cleanup(sendLeave=true) {
